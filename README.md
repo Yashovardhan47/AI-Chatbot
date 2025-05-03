@@ -24,6 +24,7 @@ o	Chatbot: Hello! How can I help you today?
 o	Explore integration with external services such as weather APIs or other data sources.
 o	Enhance chatbot functionality by fetching real-time information.
 o	Example: Integrating a chatbot with the OpenWeatherMap API to provide weather updates.
+![java project ss 7](https://github.com/user-attachments/assets/1e48e7ef-d37f-446d-bd32-eed6bc3b9759)
 
  
 
