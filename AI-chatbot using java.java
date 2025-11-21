@@ -29,9 +29,7 @@ public class ChatBotMain extends JFrame {
 	JTextArea textArea;
 	private JScrollBar scrollBar;
 
-	/**
-	 * Launch the application.
-	 */
+	//Launch the application.
 	public static void main(String[] args) {
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {
@@ -45,10 +43,7 @@ public class ChatBotMain extends JFrame {
 		});
 	}
 
-	/**
-	 * Create the frame.
-	 */
-	
+	 //Create the frame.
 	public ChatBotMain() {
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		setResizable(false);
