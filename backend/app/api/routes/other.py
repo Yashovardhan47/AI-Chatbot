@@ -2,36 +2,12 @@ from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from typing import List
 from app.middleware.auth_dep import get_current_user
 from app.models.user import User
-from app.models.memory import Memory
 from app.schemas.schemas import UpdateProfileRequest, UpdatePreferencesRequest, ChangePasswordRequest
 from app.core.security import verify_password, hash_password
 from app.core.config import settings
 
-memory_router = APIRouter(prefix="/api/memory", tags=["memory"])
 file_router   = APIRouter(prefix="/api/files", tags=["files"])
 user_router   = APIRouter(prefix="/api/users", tags=["users"])
-
-
-@memory_router.get("/")
-async def get_memories(current_user: User = Depends(get_current_user)):
-    memories = await Memory.find(Memory.user_id == str(current_user.id), Memory.active == True).sort(-Memory.created_at).to_list()
-    return {"memories": [{"id": str(m.id), "fact": m.fact, "category": m.category, "confirmed": m.confirmed, "created_at": m.created_at} for m in memories]}
-
-
-@memory_router.delete("/{memory_id}")
-async def delete_memory(memory_id: str, current_user: User = Depends(get_current_user)):
-    mem = await Memory.get(memory_id)
-    if not mem or mem.user_id != str(current_user.id):
-        raise HTTPException(status_code=404, detail="Memory not found")
-    mem.active = False
-    await mem.save()
-    return {"message": "Memory deleted"}
-
-
-@memory_router.delete("/")
-async def clear_memories(current_user: User = Depends(get_current_user)):
-    await Memory.find(Memory.user_id == str(current_user.id)).update({"$set": {"active": False}})
-    return {"message": "All memories cleared"}
 
 
 @file_router.post("/upload")
@@ -88,6 +64,8 @@ async def update_preferences(body: UpdatePreferencesRequest, current_user: User 
     if body.tts_enabled is not None: prefs.tts_enabled = body.tts_enabled
     if body.theme       is not None: prefs.theme       = body.theme
     if body.language    is not None: prefs.language    = body.language
+    if body.memory_enabled is not None: prefs.memory_enabled = body.memory_enabled
+    if body.memory_auto_capture is not None: prefs.memory_auto_capture = body.memory_auto_capture
     current_user.preferences = prefs
     await current_user.save()
     return {"preferences": prefs.model_dump()}

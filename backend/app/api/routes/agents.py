@@ -3,7 +3,7 @@ from pydantic import BaseModel
 import json
 from app.middleware.auth_dep import get_current_user
 from app.models.user import User
-from app.models.memory import Memory
+from app.services.memory_service import recall, prompt_context, receipt_references
 from app.core.config import settings
 
 router = APIRouter(prefix="/api/agents", tags=["agents"])
@@ -40,8 +40,8 @@ def call_claude(client, prompt, system, model):
 @router.post("/multi-agent")
 async def multi_agent(body: AgentRequest, user: User = Depends(get_current_user)):
     client = get_client()
-    memories = await Memory.find(Memory.user_id == str(user.id), Memory.active == True).limit(20).to_list()
-    mem_ctx = "\n".join(f"- {m.fact}" for m in memories) if memories else "No memories yet."
+    memory_result = await recall(str(user.id), body.query) if user.preferences.memory_enabled else {"used": [], "context": "[]"}
+    mem_ctx = prompt_context(memory_result)
 
     try:
         intent_raw = call_claude(client, body.query, 'Return JSON only: {"specialist":"Research|Coding|Medical|Math|Legal|Finance|General"}', body.model)
@@ -70,7 +70,8 @@ async def multi_agent(body: AgentRequest, user: User = Depends(get_current_user)
     except Exception:
         final, conf = draft, 85
 
-    return {"specialist_used": specialist, "answer": final, "confidence": conf, "memory_context": len(memories)}
+    return {"specialist_used": specialist, "answer": final, "confidence": conf,
+            "memory_context": len(memory_result["used"]), "memory_receipt": receipt_references(memory_result)}
 
 
 @router.post("/debate")

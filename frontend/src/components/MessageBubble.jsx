@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Copy, Check, Lightbulb, Volume2, ThumbsUp, ThumbsDown } from "lucide-react";
 import AIAvatar from "./AIAvatar";
+import { Link } from "react-router-dom";
 
 function CodeBlock({ lang, code }) {
   const [copied, setCopied] = useState(false);
@@ -113,6 +114,17 @@ export default function MessageBubble({ message, isLast, onSpeak }) {
             )}
             {message.memory_note && <div className="text-[10px] text-gray-700">🧠 Remembered: {message.memory_note}</div>}
           </div>
+        )}
+        {!message.streaming && message.memory_receipt?.used?.length > 0 && (
+          <details className="mt-2 text-xs text-violet-300">
+            <summary className="cursor-pointer">NeuroSense used {message.memory_receipt.used.length} memories · {message.memory_receipt.context_chars} context characters</summary>
+            <div className="mt-2 space-y-2 rounded-xl border border-violet-500/20 bg-violet-500/5 p-3">
+              {message.memory_receipt.used.map(item => <div key={item.id}>
+                <Link className="underline hover:text-white" to={`/memory?memory=${item.id}`}>View memory · version {item.version}</Link>
+                <p className="text-gray-400 mt-0.5">{item.reason}</p>
+              </div>)}
+            </div>
+          </details>
         )}
       </div>
     </div>

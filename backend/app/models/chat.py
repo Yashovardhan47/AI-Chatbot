@@ -2,6 +2,7 @@ from beanie import Document
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
+from uuid import uuid4
 
 
 class Attachment(BaseModel):
@@ -12,6 +13,7 @@ class Attachment(BaseModel):
 
 
 class Message(BaseModel):
+    id: str = Field(default_factory=lambda: uuid4().hex)
     role:        str
     content:     str
     confidence:  Optional[int]  = None
@@ -20,6 +22,7 @@ class Message(BaseModel):
     memory_note: Optional[str]  = None
     attachments: List[Attachment] = Field(default_factory=list)
     tokens_used: int = 0
+    memory_receipt: Optional[dict] = None
     created_at:  datetime = Field(default_factory=datetime.utcnow)
 
 

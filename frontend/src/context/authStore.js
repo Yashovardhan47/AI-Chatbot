@@ -36,6 +36,7 @@ const useAuthStore = create((set) => ({
   logout: async () => {
     try { await authAPI.logout(); } catch {}
     localStorage.removeItem("accessToken");
+    window.dispatchEvent(new Event("auth:logout"));
     set({ user: null, token: null });
   },
 

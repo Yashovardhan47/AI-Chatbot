@@ -12,6 +12,8 @@ export default function SettingsPage() {
   const [mode, setMode] = useState(user?.preferences?.mode || "auto");
   const [webSearch, setWebSearch] = useState(user?.preferences?.web_search || false);
   const [ttsEnabled, setTtsEnabled] = useState(user?.preferences?.tts_enabled || false);
+  const [memoryEnabled, setMemoryEnabled] = useState(user?.preferences?.memory_enabled ?? true);
+  const [autoCapture, setAutoCapture] = useState(user?.preferences?.memory_auto_capture ?? true);
   const [savingPrefs, setSavingPrefs] = useState(false);
 
   const [currentPw, setCurrentPw] = useState("");
@@ -21,7 +23,9 @@ export default function SettingsPage() {
   async function savePreferences() {
     setSavingPrefs(true);
     try {
-      await userAPI.updatePrefs({ mode, web_search: webSearch, tts_enabled: ttsEnabled });
+      const { data } = await userAPI.updatePrefs({ mode, web_search: webSearch, tts_enabled: ttsEnabled,
+        memory_enabled: memoryEnabled, memory_auto_capture: autoCapture });
+      useAuthStore.getState().updateUser({ preferences: data.preferences });
       toast.success("Preferences saved");
     } catch { toast.error("Failed to save"); }
     finally { setSavingPrefs(false); }
@@ -74,6 +78,12 @@ export default function SettingsPage() {
             </button>
           </div>
 
+          <div className="py-3 border-t border-gray-800 space-y-3">
+            <label className="flex justify-between text-sm text-gray-300">NeuroSense memory enabled<input type="checkbox" checked={memoryEnabled} onChange={e => setMemoryEnabled(e.target.checked)} className="accent-violet-500" /></label>
+            <label className="flex justify-between text-sm text-gray-300">Capture stated facts automatically<input type="checkbox" checked={autoCapture} onChange={e => setAutoCapture(e.target.checked)} className="accent-violet-500" /></label>
+            <p className="text-xs text-gray-500">When automatic capture is off, use “Remember…” or add facts in Memory Studio.</p>
+            <button onClick={() => navigate("/memory")} className="text-xs text-violet-300">Open Memory Studio →</button>
+          </div>
           <button onClick={savePreferences} disabled={savingPrefs} className="mt-4 flex items-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors">
             <Save size={13} /> {savingPrefs ? "Saving…" : "Save preferences"}
           </button>

@@ -4,6 +4,7 @@ from app.core.config import settings
 from app.models.user    import User
 from app.models.chat    import Chat
 from app.models.memory  import Memory
+from app.models.memory_state import MemoryState
 from app.models.project import Project
 import redis.asyncio as aioredis
 from app.core.logger import logger
@@ -17,7 +18,7 @@ async def connect_db():
         await client.admin.command("ping")
         await init_beanie(
             database=client[settings.DB_NAME],
-            document_models=[User, Chat, Memory, Project],
+            document_models=[User, Chat, Memory, MemoryState, Project],
         )
         logger.info("MongoDB connected")
     except Exception as e:

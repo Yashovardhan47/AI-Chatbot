@@ -7,7 +7,8 @@ from app.core.logger import logger
 from app.db.database import connect_db, connect_redis
 from app.api.routes.auth     import router as auth_router
 from app.api.routes.chat     import router as chat_router
-from app.api.routes.other    import memory_router, file_router, user_router
+from app.api.routes.other    import file_router, user_router
+from app.api.routes.memory   import router as memory_router
 from app.api.routes.projects import router as project_router
 from app.api.routes.agents   import router as agents_router
 from app.api.routes.rag      import router as rag_router
@@ -25,8 +26,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="NeuroFusion AI", version="3.0.0",
-    description="Memory-Augmented Multi-Agent Multimodal AI Assistant",
+    title="NeuroFusion AI · NeuroSense", version="4.0.0",
+    description="Personal AI assistant with grounded, versioned long-term NeuroSense memory",
     lifespan=lifespan, docs_url="/api/docs", redoc_url="/api/redoc",
 )
 
@@ -48,4 +49,4 @@ app.include_router(rag_router)
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "app": settings.APP_NAME, "version": "3.0.0"}
+    return {"status": "ok", "app": settings.APP_NAME, "version": "4.0.0", "memory": "NeuroSense"}

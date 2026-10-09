@@ -1,6 +1,40 @@
 NeuroFusion AI — Setup Guide
 =============================
 
+NEUROSENSE LONG-TERM MEMORY (v4):
+  After starting both servers, open http://localhost:5173/memory
+  or choose Memory in the chat sidebar.
+
+  Try separate chats:
+    1. "My goal is to become a data scientist."
+    2. New conversation: "What is my career goal?"
+    3. "I live in Anantapur."
+    4. "I now live in Bengaluru."
+    5. Memory Studio -> select location -> inspect previous version.
+
+  MongoDB stores memories across sessions and server restarts.
+  The Anthropic key is needed for AI answers, not manual memory/recall.
+  Use Memory Studio to confirm older, ungrounded memories before recall.
+  Private mode skips memory for that message; chat transcripts stay saved.
+
+  Config defaults (optional additions to backend/.env):
+    MEMORY_LLM_EXTRACTION=false
+    MEMORY_CONTEXT_CHARS=6000
+    MEMORY_MAX_RESULTS=8
+  Set MEMORY_LLM_EXTRACTION=true for optional structured model extraction.
+  It adds a provider request for unsupported natural-language statements.
+
+  Tests (from backend):
+    pip install -r requirements-dev.txt
+    python -m pytest -q
+    python -m evaluation.evaluate_memory
+
+  Frontend checks (from frontend):
+    npm test
+    npm run build
+
+  Detailed design, research hypotheses and limitations: docs/NEUROSENSE.md
+
 WHAT WAS FIXED THIS ROUND (tested with a real production build — 0 errors):
 
 1. REAL LAG SOURCE FOUND -> postcss.config.js was being silently reparsed as

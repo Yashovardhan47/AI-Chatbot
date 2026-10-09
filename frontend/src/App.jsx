@@ -20,6 +20,7 @@ const ProjectDetail  = lazy(() => import("./pages/ProjectDetail"));
 const AgentsPage     = lazy(() => import("./pages/AgentsPage"));
 const SettingsPage   = lazy(() => import("./pages/SettingsPage"));
 const ProfilePage    = lazy(() => import("./pages/ProfilePage"));
+const MemoryPage     = lazy(() => import("./pages/MemoryPage"));
 
 // Instant, lightweight fallback — shown for the few ms a lazy chunk takes
 // to load, so switching pages never *looks* frozen.
@@ -77,6 +78,7 @@ export default function App() {
           <Route path="/agents"       element={<PrivateRoute><AgentsPage /></PrivateRoute>} />
           <Route path="/settings"     element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
           <Route path="/profile"      element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
+          <Route path="/memory"       element={<PrivateRoute><MemoryPage /></PrivateRoute>} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

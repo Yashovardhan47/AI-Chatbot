@@ -15,6 +15,12 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379"
 
     ANTHROPIC_API_KEY: str = ""
+    # Rule extraction is free/offline. The optional extractor makes one extra
+    # provider call for messages not handled by rules; quotes are validated.
+    MEMORY_LLM_EXTRACTION: bool = False
+    MEMORY_EXTRACTOR_MODEL: str = "claude-haiku-4-5"
+    MEMORY_CONTEXT_CHARS: int = 6000
+    MEMORY_MAX_RESULTS: int = 8
     CLOUDINARY_CLOUD_NAME: str = ""
     CLOUDINARY_API_KEY: str = ""
     CLOUDINARY_API_SECRET: str = ""

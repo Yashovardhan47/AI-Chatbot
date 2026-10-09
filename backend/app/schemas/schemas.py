@@ -43,6 +43,8 @@ class UpdatePreferencesRequest(BaseModel):
     tts_enabled: Optional[bool] = None
     theme:       Optional[str]  = None
     language:    Optional[str]  = None
+    memory_enabled: Optional[bool] = None
+    memory_auto_capture: Optional[bool] = None
 
 
 # Chat

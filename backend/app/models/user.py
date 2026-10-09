@@ -22,6 +22,8 @@ class Preferences(BaseModel):
     tts_enabled: bool = False
     theme:       str  = "dark"
     language:    str  = "en"
+    memory_enabled: bool = True
+    memory_auto_capture: bool = True
 
 
 class Stats(BaseModel):

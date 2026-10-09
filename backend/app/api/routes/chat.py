@@ -1,13 +1,17 @@
 from fastapi import APIRouter, HTTPException, Depends, WebSocket, WebSocketDisconnect, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, ValidationError
+from beanie import PydanticObjectId
+from bson.errors import InvalidId
 from datetime import datetime, date
 from typing import Optional, List
 
 from app.middleware.auth_dep import get_current_user, ws_auth
 from app.models.user    import User
 from app.models.chat    import Chat, Message, Attachment
-from app.models.memory  import Memory
-from app.services.ai_service import build_system_prompt, build_user_content, extract_metadata, stream_ai_response
+from app.services.ai_service import build_system_prompt, build_user_content, extract_metadata, stream_ai_response, ALLOWED_MODELS, DEFAULT_MODEL
+from app.services.memory_service import capture_turn, recall, prompt_context, receipt_references
+from app.api.routes.memory import owned_project
+from app.core.logger import logger
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
@@ -17,6 +21,25 @@ class CreateChatBody(BaseModel):
     mode:         str           = "auto"
     is_daily:     bool          = False
     session_date: Optional[str] = None
+
+
+class TurnBody(BaseModel):
+    content: str = Field(default="", max_length=20000)
+    attachments: List[dict] = Field(default_factory=list, max_length=5)
+    mode: str = "auto"
+    web_search: bool = False
+    model: str = DEFAULT_MODEL
+    private: bool = False
+
+
+async def owned_chat(chat_id: str, user_id: str) -> Chat:
+    try:
+        chat = await Chat.get(PydanticObjectId(chat_id))
+    except (ValueError, InvalidId):
+        chat = None
+    if not chat or chat.user_id != user_id or not chat.is_active:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    return chat
 
 
 class UpdateChatBody(BaseModel):
@@ -92,6 +115,7 @@ async def get_history(current_user: User = Depends(get_current_user)):
 
 @router.post("/", status_code=201)
 async def create_chat(body: CreateChatBody, current_user: User = Depends(get_current_user)):
+    await owned_project(body.project_id, str(current_user.id))
     today = date.today().isoformat()
     chat  = Chat(
         user_id=str(current_user.id), project_id=body.project_id, mode=body.mode,
@@ -107,18 +131,14 @@ async def create_chat(body: CreateChatBody, current_user: User = Depends(get_cur
 
 @router.get("/{chat_id}")
 async def get_chat(chat_id: str, current_user: User = Depends(get_current_user)):
-    chat = await Chat.get(chat_id)
-    if not chat or chat.user_id != str(current_user.id):
-        raise HTTPException(status_code=404, detail="Chat not found")
+    chat = await owned_chat(chat_id, str(current_user.id))
     d = chat.model_dump(); d["id"] = str(chat.id)
     return {"chat": d}
 
 
 @router.put("/{chat_id}")
 async def update_chat(chat_id: str, body: UpdateChatBody, current_user: User = Depends(get_current_user)):
-    chat = await Chat.get(chat_id)
-    if not chat or chat.user_id != str(current_user.id):
-        raise HTTPException(status_code=404, detail="Chat not found")
+    chat = await owned_chat(chat_id, str(current_user.id))
     if body.title   is not None: chat.title   = body.title
     if body.pinned  is not None: chat.pinned  = body.pinned
     if body.starred is not None: chat.starred = body.starred
@@ -131,9 +151,7 @@ async def update_chat(chat_id: str, body: UpdateChatBody, current_user: User = D
 
 @router.delete("/{chat_id}")
 async def delete_chat(chat_id: str, current_user: User = Depends(get_current_user)):
-    chat = await Chat.get(chat_id)
-    if not chat or chat.user_id != str(current_user.id):
-        raise HTTPException(status_code=404, detail="Chat not found")
+    chat = await owned_chat(chat_id, str(current_user.id))
     chat.is_active = False
     await chat.save()
     return {"message": "Chat deleted"}
@@ -153,8 +171,10 @@ async def chat_ws(websocket: WebSocket, chat_id: str, token: str = Query(...)):
         await chat.insert()
         await websocket.send_json({"type": "chat_created", "chat_id": str(chat.id)})
     else:
-        chat = await Chat.get(chat_id)
-        if not chat or chat.user_id != str(user.id):
+        try:
+            chat = await owned_chat(chat_id, str(user.id))
+            await owned_project(chat.project_id, str(user.id))
+        except HTTPException:
             await websocket.close(code=1008)
             return
 
@@ -164,24 +184,25 @@ async def chat_ws(websocket: WebSocket, chat_id: str, token: str = Query(...)):
             if data.get("type") != "message":
                 continue
 
-            content     = data.get("content", "")
-            attachments = data.get("attachments", [])
-            mode        = data.get("mode", "auto")
-            web_search  = data.get("web_search", False)
-            model       = data.get("model", "claude-sonnet-4-6")
-
-            memories = await Memory.find(Memory.user_id == str(user.id), Memory.active == True).sort(-Memory.created_at).limit(50).to_list()
-            system_prompt = build_system_prompt(mode, memories)
-
-            recent_context = []
-            if len(chat.messages) < 3:
-                recent_chats = await Chat.find(Chat.user_id == str(user.id), Chat.is_active == True).sort(-Chat.updated_at).limit(3).to_list()
-                for rc in recent_chats:
-                    if str(rc.id) != str(chat.id) and rc.messages:
-                        for m in rc.messages[-2:]:
-                            recent_context.append({"role": m.role, "content": f"[Previous session] {m.content[:300]}"})
-
-            history = recent_context + [{"role": m.role, "content": m.content} for m in chat.messages[-20:]]
+            try:
+                turn = TurnBody.model_validate(data)
+            except ValidationError:
+                await websocket.send_json({"type": "error", "message": "Use up to 20,000 characters and 5 attachments"})
+                continue
+            content, attachments, mode, web_search = turn.content, turn.attachments, turn.mode, turn.web_search
+            model = turn.model if turn.model in ALLOWED_MODELS else DEFAULT_MODEL
+            if not content.strip() and not attachments:
+                await websocket.send_json({"type": "error", "message": "Enter a message or attach a file"})
+                continue
+            # Revalidate active account, token and current privacy preferences
+            # on every turn, including sockets opened before sign-out.
+            user = await ws_auth(websocket, token)
+            chat = await owned_chat(str(chat.id), str(user.id))
+            await owned_project(chat.project_id, str(user.id))
+            memory_enabled = user.preferences.memory_enabled and not turn.private
+            # Cross-session knowledge comes only from the scoped memory layer;
+            # raw recent chats must not bypass private mode or project boundaries.
+            history = [{"role": m.role, "content": m.content} for m in chat.messages[-20:]]
 
             class AttObj:
                 def __init__(self, d):
@@ -195,34 +216,48 @@ async def chat_ws(websocket: WebSocket, chat_id: str, token: str = Query(...)):
 
             user_msg = Message(role="user", content=content,
                 attachments=[Attachment(name=a.name, url=a.url, file_type=a.file_type) for a in att_objs])
-            chat.messages.append(user_msg)
+            changes = {"updated_at": datetime.utcnow()}
             if (chat.title == "New Conversation" or chat.title.startswith("Today —")) and content:
-                chat.title = content[:55] + ("…" if len(content) > 55 else "")
+                changes["title"] = content[:55] + ("…" if len(content) > 55 else "")
+            await Chat.get_motor_collection().update_one({"_id": chat.id, "user_id": str(user.id)},
+                {"$push": {"messages": user_msg.model_dump()}, "$set": changes})
+
+            saved_memories = []
+            memory_result = {"used": [], "context": "[]", "candidates": 0, "context_chars": 2,
+                             "algorithm": "bm25-trigram-temporal-v1", "disabled": not memory_enabled}
+            memory_warning = None
+            if memory_enabled:
+                try:
+                    saved_memories = await capture_turn(str(user.id), content, str(chat.id), user_msg.id,
+                                                        chat.project_id, user.preferences.memory_auto_capture,
+                                                        observed_at=user_msg.created_at)
+                    refreshed_user = await User.get(user.id)
+                    if refreshed_user and refreshed_user.is_active and refreshed_user.preferences.memory_enabled:
+                        memory_result = await recall(str(user.id), content, chat.project_id)
+                    else:
+                        memory_result["disabled"] = True
+                except Exception:
+                    logger.warning("NeuroSense memory processing unavailable")
+                    memory_warning = "Memory is temporarily unavailable for this turn"
+            system_prompt = build_system_prompt(mode, prompt_context(memory_result))
 
             full_text = ""
             try:
                 async for delta in stream_ai_response(user_content, history, system_prompt, web_search, model):
                     full_text += delta
                     await websocket.send_json({"type": "delta", "delta": delta})
-            except Exception as e:
-                err = f"AI Error: {str(e)}"
+            except Exception:
+                logger.warning("AI generation unavailable")
+                err = "The AI provider is unavailable. Your message was saved; please try again."
                 await websocket.send_json({"type": "delta", "delta": err})
                 full_text = err
 
             meta = extract_metadata(full_text)
             ai_msg = Message(role="assistant", content=meta["clean_text"], confidence=meta["confidence"],
-                reasoning=meta["reasoning"], sources=meta["sources"], memory_note=meta["memory"])
-            chat.messages.append(ai_msg)
-            chat.updated_at = datetime.utcnow()
-            await chat.save()
-
-            new_memory = None
-            if meta["memory"]:
-                exists = await Memory.find_one(Memory.user_id == str(user.id), Memory.fact == meta["memory"], Memory.active == True)
-                if not exists:
-                    mem = Memory(user_id=str(user.id), fact=meta["memory"], source_chat_id=str(chat.id))
-                    await mem.insert()
-                    new_memory = meta["memory"]
+                reasoning=meta["reasoning"], sources=meta["sources"],
+                memory_receipt=receipt_references(memory_result))
+            await Chat.get_motor_collection().update_one({"_id": chat.id, "user_id": str(user.id)},
+                {"$push": {"messages": ai_msg.model_dump()}, "$set": {"updated_at": datetime.utcnow()}})
 
             try:
                 user.stats.total_messages += 1
@@ -232,13 +267,16 @@ async def chat_ws(websocket: WebSocket, chat_id: str, token: str = Query(...)):
 
             await websocket.send_json({
                 "type": "done", "chat_id": str(chat.id), "confidence": meta["confidence"],
-                "reasoning": meta["reasoning"], "sources": meta["sources"], "memory": new_memory, "model": model,
+                "reasoning": meta["reasoning"], "sources": meta["sources"], "model": model,
+                "content": meta["clean_text"], "message_id": ai_msg.id,
+                "saved_memories": saved_memories, "memory_receipt": receipt_references(memory_result),
+                "memory_warning": memory_warning,
             })
 
     except WebSocketDisconnect:
         pass
-    except Exception as e:
+    except Exception:
         try:
-            await websocket.send_json({"type": "error", "message": str(e)})
+            await websocket.send_json({"type": "error", "message": "Unable to process this conversation; please reload"})
         except Exception:
             pass

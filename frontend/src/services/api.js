@@ -22,7 +22,7 @@ function onAuthFailure() {
 let refreshing = false, queue = [];
 api.interceptors.response.use(res => res, async err => {
   const orig = err.config;
-  if (err.response?.status === 401 && !orig._retry && !orig.url?.includes("/auth/login") && !orig.url?.includes("/auth/register")) {
+  if (err.response?.status === 401 && !orig._retry && !orig.url?.includes("/auth/refresh") && !orig.url?.includes("/auth/login") && !orig.url?.includes("/auth/register")) {
     if (refreshing) return new Promise((res, rej) => queue.push({ res, rej }))
       .then(t => { orig.headers.Authorization = `Bearer ${t}`; return api(orig); });
     orig._retry = true; refreshing = true;
@@ -62,7 +62,12 @@ export const chatAPI = {
 };
 
 export const memoryAPI = {
-  getAll: () => api.get("/memory/"),
+  getAll: params => api.get("/memory/", { params }),
+  getOne: id => api.get(`/memory/${id}`),
+  create: data => api.post("/memory/", data),
+  update: (id, data) => api.patch(`/memory/${id}`, data),
+  recall: data => api.post("/memory/recall", data),
+  stats: () => api.get("/memory/stats"),
   delete: id => api.delete(`/memory/${id}`),
   clearAll: () => api.delete("/memory/"),
 };
@@ -79,7 +84,7 @@ export const userAPI = {
   deactivate:    () => api.delete("/users/"),
 };
 
-export function createChatSocket(chatId, token, { onDelta, onDone, onChatCreated }) {
+export function createChatSocket(chatId, token, { onDelta, onDone, onChatCreated, onError, onClose }) {
   const base = (import.meta.env.VITE_API_URL || "http://localhost:8000/api").replace(/^http/, "ws");
   const ws = new WebSocket(`${base}/chat/ws/${chatId}?token=${token}`);
   ws.onmessage = e => {
@@ -88,8 +93,11 @@ export function createChatSocket(chatId, token, { onDelta, onDone, onChatCreated
       if (data.type === "delta") onDelta?.(data.delta);
       if (data.type === "done")  onDone?.(data);
       if (data.type === "chat_created") onChatCreated?.(data.chat_id);
+      if (data.type === "error") onError?.(data.message);
     } catch {}
   };
+  ws.onerror = () => onError?.("Chat connection failed. Reload to reconnect.");
+  ws.onclose = () => onClose?.();
   return ws;
 }
 

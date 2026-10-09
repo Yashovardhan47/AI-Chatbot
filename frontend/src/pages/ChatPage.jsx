@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Menu, Globe, Brain, Mic, MicOff, Paperclip, Send, Sparkles, Square } from "lucide-react";
+import { Menu, Globe, Brain, Mic, MicOff, Paperclip, Send, Sparkles, Square, Shield } from "lucide-react";
 import toast from "react-hot-toast";
 import useChatStore from "../context/chatStore";
 import MessageBubble from "../components/MessageBubble";
@@ -22,7 +22,7 @@ const MODES = [
 export default function ChatPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { chats, activeChat, messages, memories, streaming, streamBuffer, fetchChats, fetchHistory, openChat, newChat, sendMessage, fetchMemories, uploadFiles, getTodayChat } = useChatStore();
+  const { chats, activeChat, messages, memories, memoryTotal, streaming, streamBuffer, fetchChats, fetchHistory, openChat, newChat, sendMessage, fetchMemories, uploadFiles, getTodayChat } = useChatStore();
 
   const [input, setInput] = useState("");
   const [mode, setMode] = useState("auto");
@@ -34,6 +34,7 @@ export default function ChatPage() {
   const [sidebarOpen, setSidebar] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [ttsActive, setTtsActive] = useState(false);
+  const [privateMode, setPrivateMode] = useState(false);
 
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
@@ -41,6 +42,7 @@ export default function ChatPage() {
   const recognRef = useRef(null);
 
   useEffect(() => { fetchChats(); fetchMemories(); fetchHistory(); }, []);
+  useEffect(() => () => useChatStore.getState().disconnect(), []);
   useEffect(() => {
     if (id) { openChat(id); }
     else { getTodayChat().then(chat => { if (chat) navigate(`/chat/${chat.id}`, { replace: true }); }); }
@@ -97,9 +99,10 @@ export default function ChatPage() {
     if (!activeChat) { const chat = await newChat(); navigate(`/chat/${chat.id}`, { replace: true }); }
     recognRef.current?.stop(); setRecording(false);
     const attachments = [...files];
+    const sent = sendMessage({ content: text, attachments, mode, webSearch, model: selectedModel, privateMode });
+    if (!sent) return;
     setInput(""); setFiles([]);
     if (inputRef.current) inputRef.current.style.height = "auto";
-    sendMessage({ content: text, attachments, mode, webSearch, model: selectedModel });
   }
 
   const currentMode = MODES.find(m => m.key === mode) || MODES[0];
@@ -130,7 +133,12 @@ export default function ChatPage() {
           <button onClick={() => setWebSearch(s => !s)} className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] border transition-all flex-shrink-0 ${webSearch ? "border-blue-500/40 bg-blue-600/20 text-blue-400" : "border-gray-800 text-gray-600 hover:border-gray-600"}`}><Globe size={11} /></button>
           <button onClick={() => setShowMemory(s => !s)} className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] border transition-all flex-shrink-0 ${showMemory ? "border-violet-500/40 bg-violet-600/20 text-violet-400" : "border-gray-800 text-gray-600 hover:border-gray-600"}`}>
             <Brain size={11} />
-            {memories.length > 0 && <span className="bg-violet-500 text-white rounded-full w-3.5 h-3.5 flex items-center justify-center text-[8px]">{memories.length > 99 ? "99" : memories.length}</span>}
+            {memoryTotal > 0 && <span className="bg-violet-500 text-white rounded-full w-3.5 h-3.5 flex items-center justify-center text-[8px]">{memoryTotal > 99 ? "99+" : memoryTotal}</span>}
+          </button>
+          <button onClick={() => setPrivateMode(value => !value)} aria-pressed={privateMode}
+            title="Skip memory recall and capture for this message. Chat transcripts are still saved."
+            className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] border ${privateMode ? "text-amber-300 border-amber-500/40 bg-amber-500/10" : "text-gray-400 border-gray-700"}`}>
+            <Shield size={11} /><span className="hidden sm:inline">{privateMode ? "Memory off" : "Private mode"}</span>
           </button>
           {ttsActive && <button onClick={() => { window.speechSynthesis?.cancel(); setTtsActive(false); }} className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] border border-orange-500/40 bg-orange-600/20 text-orange-400 flex-shrink-0"><Square size={9} fill="currentColor" /> Stop</button>}
         </div>
@@ -141,7 +149,7 @@ export default function ChatPage() {
               <AIAvatar size={64} thinking={false} mode={mode} />
               <h2 className="text-xl font-semibold mt-4 mb-2 text-white">{activeChat?.is_daily ? "Today's session" : "How can I help?"}</h2>
               <p className="text-gray-500 text-sm max-w-sm mb-2">Using <span style={{ color: currentMode.color }} className="font-medium">{modelInfo.name}</span></p>
-              {memories.length > 0 && <p className="text-xs text-violet-400/70 mb-6">I remember {memories.length} things about you from past sessions</p>}
+              {memoryTotal > 0 && <p className="text-xs text-violet-400/70 mb-6">{memoryTotal} stored facts across your sessions and projects</p>}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-md w-full mt-2">
                 {["Explain Python async/await with examples","Debug my FastAPI authentication code","What are the latest AI trends?","Help me write a research paper intro","Build a REST API in Python","Analyze this concept and give me sources"].map(p => (
                   <button key={p} onClick={() => { setInput(p); inputRef.current?.focus(); }} className="text-left text-xs bg-gray-900/60 backdrop-blur hover:bg-gray-800/60 border border-gray-800 hover:border-gray-700 rounded-xl p-3 text-gray-400 hover:text-gray-200 transition-all">{p}</button>
@@ -183,7 +191,7 @@ export default function ChatPage() {
             <button onClick={toggleVoice} className={`p-1.5 rounded-xl transition-colors flex-shrink-0 ${recording ? "bg-red-500/20 text-red-400 animate-pulse" : "text-gray-600 hover:text-gray-400 hover:bg-gray-800"}`}>{recording ? <MicOff size={15} /> : <Mic size={15} />}</button>
             <button onClick={handleSend} disabled={streaming || (!input.trim() && files.length === 0)} className="p-2 bg-white hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed text-gray-950 rounded-xl transition-colors flex-shrink-0"><Send size={14} /></button>
           </div>
-          <p className="text-[10px] text-gray-700 text-center mt-1.5">NeuroFusion AI remembers you across sessions · {modelInfo.name}</p>
+          <p className="text-[10px] text-gray-500 text-center mt-1.5">{privateMode ? "Memory recall and capture are off · This chat is still saved" : "Powered by NeuroSense · Relevant memories across sessions"} · {modelInfo.name}</p>
         </div>
       </div>
 
