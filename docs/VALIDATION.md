@@ -5,10 +5,12 @@ paid AI request or real reminder email was used.
 
 ## Completed local checks
 
-- **64 backend tests** pass. Existing coverage exercises grounded extraction,
+- **65 backend tests** pass locally. Existing coverage exercises grounded extraction,
   archive recall, slot revisions/current/history/as-of semantics, character budgets,
   user/project boundaries, expiry, pins, pagination, legacy confirmation, deletion,
   privacy enforcement and cancellation of delayed captures through API/WebSocket paths.
+  Separate concurrency checks ensure that every accepted manual correction retains
+  a revision and that out-of-order automatic captures keep the newest observation.
 - New workspace coverage exercises text/PDF/DOCX import, exact page citations,
   deduplication, owner/scope checks, original download, removal and quotas; two-hop
   graph expansion and exclusion of expired linked facts; fake semantic vectors and
@@ -39,8 +41,12 @@ Local backend tests use `mongomock-motor`. The fixture repairs a mock limitation
 that loses partial-index options; real MongoDB uses the declared model index.
 `NEUROSENSE_TEST_MONGO_URI` selects a real test server and creates/deletes a unique
 throwaway database. The supplied GitHub Actions workflow uses a MongoDB service,
-checks the frontend and validates Compose configuration; adding this workflow is
-not evidence that a remote run has passed.
+  checks the frontend and validates Compose configuration. The first remote run
+  passed frontend tests/build and Compose validation. Its MongoDB run passed 63 of
+  64 tests, exposing an incorrect arrival-order assumption in a concurrency test.
+  That test now distinguishes manual correction versions from stale automatic
+  captures, with an additional assertion for the latest observation. The corrected
+  remote run must pass before real-database validation is considered complete.
 
 No live Anthropic, Ollama model, Google OAuth, SMTP or Cloudinary integration was
 executed. Protocol mocks validate the application contract, not provider uptime,

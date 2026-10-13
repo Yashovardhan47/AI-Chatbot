@@ -11,7 +11,7 @@ from app.models.chat import Chat
 from app.models.project import Project
 from app.db.database import DOCUMENT_MODELS
 from app.services.memory_logic import Candidate, extract_rules, grounded, pack_context, rank_memories
-from app.services.memory_service import capture_turn, recall, receipt_references
+from app.services.memory_service import capture_turn, recall, receipt_references, upsert_memory
 
 
 def record(fact, **kwargs):
@@ -100,13 +100,31 @@ async def test_duplicate_turn_does_not_grow_memory(owner):
     assert len(memories) == 1 and not memories[0].revisions
 
 
-async def test_concurrent_corrections_do_not_lose_versions(owner):
+async def test_concurrent_manual_corrections_do_not_lose_versions(owner):
     await capture_turn(str(owner.id), "I live in Anantapur.", "s1", "m1")
-    await asyncio.gather(*[capture_turn(str(owner.id), f"I live in City{n}.", f"s{n}", f"m{n}") for n in range(4)])
+    # Manual writes take their observation time after acquiring the owner lease.
+    # All accepted corrections must retain a version regardless of lease order.
+    await asyncio.gather(*[upsert_memory(str(owner.id), extract_rules(f"I live in City{n}.")[0],
+                                        provenance="user", confirmed=True) for n in range(4)])
     memory = await Memory.find_one({"user_id": str(owner.id)})
     assert memory.version == 5
     assert len(memory.revisions) == 4
     assert len({revision.version for revision in memory.revisions}) == 4
+    assert {memory.fact, *[r.fact for r in memory.revisions]} == {
+        "I live in Anantapur", *[f"I live in City{n}" for n in range(4)]}
+
+
+async def test_concurrent_chat_observations_keep_the_latest_fact(owner):
+    start = datetime.utcnow() - timedelta(minutes=1)
+    await capture_turn(str(owner.id), "I live in Anantapur.", "initial", "initial", observed_at=start)
+    await asyncio.gather(*[capture_turn(str(owner.id), f"I live in City{n}.", f"s{n}", f"m{n}",
+                                       observed_at=start + timedelta(seconds=n + 1)) for n in range(4)])
+    memory = await Memory.find_one({"user_id": str(owner.id)})
+    # Older captures that lose the lease race are stale, not additional revisions.
+    assert memory.fact == "I live in City3" and memory.source_message_id == "m3"
+    assert memory.version == len(memory.revisions) + 1
+    assert [r.version for r in memory.revisions] == list(range(1, memory.version))
+    assert all(r.valid_from <= r.valid_until <= memory.valid_from for r in memory.revisions)
 
 
 async def test_users_and_projects_are_isolated(owner):
