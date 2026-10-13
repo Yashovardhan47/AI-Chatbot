@@ -35,18 +35,23 @@ paid AI request or real reminder email was used.
   harness runs on 166 records and 8 cases; it is a regression demonstration, not
   an external benchmark or a measurement of model answer accuracy.
 
+## Remote validation
+
+[GitHub Actions run 38347441922](https://github.com/Yashovardhan47/AI-Chatbot/actions/runs/38347441922)
+passed for code commit `b14a7ed6b49800c7d2451e29132122a6e9d49016`:
+
+- All 65 backend tests passed against an actual MongoDB 7.0.14 service.
+- All 14 frontend tests, the Vite production build and `docker compose config
+  --quiet` passed on the runner.
+
 ## Validation limits
 
 Local backend tests use `mongomock-motor`. The fixture repairs a mock limitation
 that loses partial-index options; real MongoDB uses the declared model index.
 `NEUROSENSE_TEST_MONGO_URI` selects a real test server and creates/deletes a unique
 throwaway database. The supplied GitHub Actions workflow uses a MongoDB service,
-  checks the frontend and validates Compose configuration. The first remote run
-  passed frontend tests/build and Compose validation. Its MongoDB run passed 63 of
-  64 tests, exposing an incorrect arrival-order assumption in a concurrency test.
-  That test now distinguishes manual correction versions from stale automatic
-  captures, with an additional assertion for the latest observation. The corrected
-  remote run must pass before real-database validation is considered complete.
+  checks the frontend and validates Compose configuration; the completed run above
+  verifies these checks with the corrected concurrency expectations.
 
 No live Anthropic, Ollama model, Google OAuth, SMTP or Cloudinary integration was
 executed. Protocol mocks validate the application contract, not provider uptime,
