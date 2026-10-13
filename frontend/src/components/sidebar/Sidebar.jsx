@@ -4,11 +4,13 @@ import {
   Sparkles, Plus, Search, MessageSquare, FolderKanban, LayoutDashboard,
   Settings, LogOut, User, Brain, ChevronDown, ChevronRight,
   Star, Trash2, Edit3, Check, X, Cpu, Zap, Crown, Bot, Calendar, Clock,
+  BookOpen, Network, CalendarCheck,
 } from "lucide-react";
 import useAuthStore from "../../context/authStore";
 import useChatStore from "../../context/chatStore";
 
 export const AI_MODELS = [
+  { id: "local", name: "Local Ollama model", label: "Local", desc: "Runs on your server", icon: Cpu, color: "text-cyan-400", badge: "Local", badgeColor: "bg-cyan-600/20 text-cyan-400 border-cyan-500/30" },
   { id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6", label: "Sonnet", desc: "Smart & fast", icon: Zap, color: "text-violet-400", badge: "Recommended", badgeColor: "bg-violet-600/20 text-violet-400 border-violet-500/30" },
   { id: "claude-opus-4-6",   name: "Claude Opus 4.6",   label: "Opus",   desc: "Most powerful", icon: Crown, color: "text-yellow-400", badge: "Powerful", badgeColor: "bg-yellow-600/20 text-yellow-400 border-yellow-500/30" },
   { id: "claude-haiku-4-5",  name: "Claude Haiku 4.5",  label: "Haiku",  desc: "Fastest", icon: Cpu, color: "text-green-400", badge: "Fastest", badgeColor: "bg-green-600/20 text-green-400 border-green-500/30" },
@@ -132,6 +134,9 @@ export default function Sidebar({ open, onClose, selectedModel, onModelChange, o
     { path: "/projects",  label: "Projects",  icon: FolderKanban },
     { path: "/agents",    label: "Agents",    icon: Bot },
     { path: "/memory",    label: "Memory",    icon: Brain },
+    { path: "/knowledge", label: "Knowledge", icon: BookOpen },
+    { path: "/continuity", label: "Continuity", icon: CalendarCheck },
+    { path: "/memory-graph", label: "Graph", icon: Network },
   ];
 
   async function handleLogout() { await logout(); navigate("/welcome"); }
@@ -154,7 +159,7 @@ export default function Sidebar({ open, onClose, selectedModel, onModelChange, o
           </button>
         </div>
 
-        <div className="px-3 mb-2 grid grid-cols-5 gap-1 flex-shrink-0">
+        <div className="px-3 mb-2 grid grid-cols-4 gap-1 flex-shrink-0">
           {navItems.map(({ path, label, icon: Icon }) => {
             const active = location.pathname.startsWith(path);
             return (

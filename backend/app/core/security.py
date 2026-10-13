@@ -4,6 +4,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from app.core.config import settings
 import hashlib
+from uuid import uuid4
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -26,14 +27,14 @@ def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(_safe_password(plain), hashed)
 
 
-def create_access_token(subject: str) -> str:
+def create_access_token(subject: str, version: int = 0) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    return jwt.encode({"sub": subject, "exp": expire, "type": "access"}, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return jwt.encode({"sub": subject, "exp": expire, "type": "access", "sv": version, "jti": uuid4().hex}, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
-def create_refresh_token(subject: str) -> str:
+def create_refresh_token(subject: str, version: int = 0) -> str:
     expire = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    return jwt.encode({"sub": subject, "exp": expire, "type": "refresh"}, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return jwt.encode({"sub": subject, "exp": expire, "type": "refresh", "sv": version, "jti": uuid4().hex}, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
 def decode_token(token: str) -> Optional[dict]:

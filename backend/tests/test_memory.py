@@ -9,6 +9,7 @@ from app.models.memory_state import MemoryState
 from app.models.user import User
 from app.models.chat import Chat
 from app.models.project import Project
+from app.db.database import DOCUMENT_MODELS
 from app.services.memory_logic import Candidate, extract_rules, grounded, pack_context, rank_memories
 from app.services.memory_service import capture_turn, recall, receipt_references
 
@@ -60,7 +61,7 @@ async def test_recall_survives_reinitialization_not_python_globals(owner):
     if not os.environ.get("NEUROSENSE_TEST_MONGO_URI"):
         # See fixture note about mongomock's bulk create_indexes limitation.
         await database.memories.drop_index("memory_owner_scope_slot")
-    await init_beanie(database=database, document_models=[Memory, MemoryState, User, Chat, Project])
+    await init_beanie(database=database, document_models=DOCUMENT_MODELS)
     result = await recall(str(owner.id), "What is my career goal?")
     assert len(result["used"]) == 1
     assert "data scientist" in result["used"][0]["fact"]

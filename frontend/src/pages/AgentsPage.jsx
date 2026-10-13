@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bot, Swords, CalendarCheck, ArrowLeft, FileSearch, Globe, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import api from "../services/api";
 import toast from "react-hot-toast";
+import { continuityAPI } from "../services/api";
 
 const MODELS = [
+  { id: "local", label: "Local Ollama model" },
   { id: "claude-sonnet-4-6", label: "Sonnet 4.6 — Recommended" },
   { id: "claude-opus-4-6", label: "Opus 4.6 — Most Powerful" },
   { id: "claude-haiku-4-5", label: "Haiku 4.5 — Fastest" },
@@ -44,6 +46,7 @@ export default function AgentsPage() {
   const [planGoal, setPG] = useState(""); const [planWeeks, setPW] = useState(4); const [planResult, setPR] = useState(null);
   const [ragDoc, setRD] = useState(""); const [ragQ, setRQ] = useState(""); const [ragResult, setRR] = useState(null);
   const [webQ, setWQ] = useState(""); const [webResult, setWR] = useState(null);
+  useEffect(() => { api.get("/agents/capabilities").then(({ data }) => { if (data.provider === "ollama") setModel("local"); }).catch(() => {}); }, []);
 
   async function call(key, endpoint, body, setter) {
     setLoad(l => ({ ...l, [key]: true }));
@@ -104,7 +107,7 @@ export default function AgentsPage() {
               {planResult.plan.weeks?.map((w, i) => (
                 <div key={i} className="bg-gray-950 border border-gray-700 rounded-xl p-4">
                   <div className="flex items-center gap-2 mb-2"><span className="bg-green-600/20 text-green-400 border border-green-500/30 text-xs px-2 py-0.5 rounded-full">Week {w.week}</span><span className="text-sm font-medium text-white">{w.theme}</span></div>
-                  <ul className="space-y-1">{w.tasks?.map((t, j) => <li key={j} className="text-xs text-gray-400 flex items-start gap-2"><span className="text-green-500 mt-0.5">✓</span>{t}</li>)}</ul>
+                  <ul className="space-y-1">{w.tasks?.map((t, j) => <li key={j} className="text-xs text-gray-400 flex items-start gap-2"><span className="text-green-500 mt-0.5">•</span><span className="flex-1">{t}</span><button className="text-violet-300 text-[10px]" onClick={async () => { try { await continuityAPI.create({ title: t.slice(0, 200), notes: `Plan: ${planResult.plan.goal} · Week ${w.week}` }); toast.success("Added to Continuity"); } catch { toast.error("Unable to save commitment"); } }}>Keep as task</button></li>)}</ul>
                   {w.milestone && <p className="text-xs text-yellow-400 mt-2">🎯 {w.milestone}</p>}
                 </div>
               ))}

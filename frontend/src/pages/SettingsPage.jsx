@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Settings, Lock, Palette, Globe, Volume2, Save } from "lucide-react";
 import toast from "react-hot-toast";
 import useAuthStore from "../context/authStore";
-import { userAPI } from "../services/api";
+import { userAPI, accountAPI, saveDownload } from "../services/api";
 
 export default function SettingsPage() {
   const navigate = useNavigate();
@@ -14,6 +14,12 @@ export default function SettingsPage() {
   const [ttsEnabled, setTtsEnabled] = useState(user?.preferences?.tts_enabled || false);
   const [memoryEnabled, setMemoryEnabled] = useState(user?.preferences?.memory_enabled ?? true);
   const [autoCapture, setAutoCapture] = useState(user?.preferences?.memory_auto_capture ?? true);
+  const [sessionMemory, setSessionMemory] = useState(user?.preferences?.session_memory_enabled ?? false);
+  const [knowledgeEnabled, setKnowledgeEnabled] = useState(user?.preferences?.knowledge_enabled ?? true);
+  const [reminderEmails, setReminderEmails] = useState(user?.preferences?.reminder_emails ?? false);
+  const [timezone, setTimezone] = useState(user?.preferences?.timezone || "Asia/Kolkata");
+  const [erasure, setErasure] = useState("");
+  const [dataBusy, setDataBusy] = useState(false);
   const [savingPrefs, setSavingPrefs] = useState(false);
 
   const [currentPw, setCurrentPw] = useState("");
@@ -24,7 +30,8 @@ export default function SettingsPage() {
     setSavingPrefs(true);
     try {
       const { data } = await userAPI.updatePrefs({ mode, web_search: webSearch, tts_enabled: ttsEnabled,
-        memory_enabled: memoryEnabled, memory_auto_capture: autoCapture });
+        memory_enabled: memoryEnabled, memory_auto_capture: autoCapture, session_memory_enabled: sessionMemory,
+        knowledge_enabled: knowledgeEnabled, reminder_emails: reminderEmails, timezone });
       useAuthStore.getState().updateUser({ preferences: data.preferences });
       toast.success("Preferences saved");
     } catch { toast.error("Failed to save"); }
@@ -39,6 +46,8 @@ export default function SettingsPage() {
       await userAPI.changePw({ current_password: currentPw, new_password: newPw });
       toast.success("Password changed successfully");
       setCurrentPw(""); setNewPw("");
+      await useAuthStore.getState().logout();
+      navigate("/login");
     } catch (err) {
       toast.error(err.response?.data?.detail || "Failed to change password");
     } finally { setChangingPw(false); }
@@ -82,6 +91,11 @@ export default function SettingsPage() {
             <label className="flex justify-between text-sm text-gray-300">NeuroSense memory enabled<input type="checkbox" checked={memoryEnabled} onChange={e => setMemoryEnabled(e.target.checked)} className="accent-violet-500" /></label>
             <label className="flex justify-between text-sm text-gray-300">Capture stated facts automatically<input type="checkbox" checked={autoCapture} onChange={e => setAutoCapture(e.target.checked)} className="accent-violet-500" /></label>
             <p className="text-xs text-gray-500">When automatic capture is off, use “Remember…” or add facts in Memory Studio.</p>
+            <label className="flex justify-between text-sm text-gray-300">Save session snapshots automatically<input type="checkbox" checked={sessionMemory} onChange={e => setSessionMemory(e.target.checked)} className="accent-violet-500" /></label>
+            <label className="flex justify-between text-sm text-gray-300">Use knowledge library in chat<input type="checkbox" checked={knowledgeEnabled} onChange={e => setKnowledgeEnabled(e.target.checked)} className="accent-violet-500" /></label>
+            <label className="flex justify-between text-sm text-gray-300">Email due reminders<input type="checkbox" checked={reminderEmails} onChange={e => setReminderEmails(e.target.checked)} className="accent-violet-500" /></label>
+            <p className="text-xs text-gray-500">Reminder emails require the server's mail service and reminder worker. In-app reminders appear in Continuity.</p>
+            <label className="block text-xs text-gray-400">Timezone for recurring commitments<input value={timezone} onChange={e => setTimezone(e.target.value)} placeholder="Asia/Kolkata" className="block w-full bg-gray-800 border border-gray-700 rounded-lg p-2 mt-2 text-gray-200"/></label>
             <button onClick={() => navigate("/memory")} className="text-xs text-violet-300">Open Memory Studio →</button>
           </div>
           <button onClick={savePreferences} disabled={savingPrefs} className="mt-4 flex items-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors">
@@ -89,6 +103,11 @@ export default function SettingsPage() {
           </button>
         </div>
 
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 mb-4">
+          <h2 className="text-sm font-semibold mb-3">Your data</h2><p className="text-xs text-gray-500 mb-4">Export your profile, chats, knowledge, memories and commitments as a portable JSON file.</p>
+          <button disabled={dataBusy} onClick={async () => { setDataBusy(true); try { const { data } = await accountAPI.export(); saveDownload(data, "neurosense-account.json"); } catch { toast.error("Unable to export data"); } finally { setDataBusy(false); } }} className="text-sm bg-gray-800 px-4 py-2 rounded-xl">Export my workspace</button>
+          <div className="border-t border-gray-800 mt-5 pt-5"><h3 className="text-sm text-red-300">Erase workspace data</h3><p className="text-xs text-gray-500 mt-2 mb-3">Permanently remove saved chats, documents, memories, snapshots, relationships, commitments and reminders. Your account remains, and all sessions are signed out.</p><input aria-label="Erasure confirmation" value={erasure} onChange={e => setErasure(e.target.value)} placeholder="Type DELETE MY DATA" className="w-full bg-gray-950 border border-gray-700 rounded-xl px-3 py-2 text-sm"/><button disabled={dataBusy || erasure !== "DELETE MY DATA"} onClick={async () => { setDataBusy(true); try { await accountAPI.erase(erasure); await useAuthStore.getState().logout(); navigate("/login"); toast.success("Workspace erased"); } catch { toast.error("Unable to erase workspace"); } finally { setDataBusy(false); } }} className="mt-3 text-sm text-red-300 bg-red-500/10 border border-red-500/30 disabled:opacity-30 px-4 py-2 rounded-xl">Erase my workspace</button></div>
+        </div>
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
           <h2 className="text-sm font-semibold mb-4 flex items-center gap-2"><Lock size={14} className="text-violet-400" /> Change password</h2>
           <form onSubmit={changePassword} className="space-y-3">

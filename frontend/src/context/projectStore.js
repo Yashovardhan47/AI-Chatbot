@@ -5,7 +5,8 @@ const useProjectStore = create((set) => ({
   projects: [],
 
   fetchProjects: async () => {
-    try { const { data } = await api.get("/projects/"); set({ projects: data.projects }); }
+    const token = localStorage.getItem("accessToken");
+    try { const { data } = await api.get("/projects/"); if (token === localStorage.getItem("accessToken")) set({ projects: data.projects }); }
     catch { set({ projects: [] }); }
   },
 
@@ -26,5 +27,7 @@ const useProjectStore = create((set) => ({
     set(s => ({ projects: s.projects.filter(p => p.id !== id) }));
   },
 }));
+
+window.addEventListener("auth:logout", () => useProjectStore.setState({ projects: [] }));
 
 export default useProjectStore;

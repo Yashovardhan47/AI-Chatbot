@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 from app.core.config import settings
 from app.core.logger import logger
-from app.db.database import connect_db, connect_redis
+from app.db.database import connect_db, connect_redis, disconnect_db
 from app.api.routes.auth     import router as auth_router
 from app.api.routes.chat     import router as chat_router
 from app.api.routes.other    import file_router, user_router
@@ -12,21 +12,29 @@ from app.api.routes.memory   import router as memory_router
 from app.api.routes.projects import router as project_router
 from app.api.routes.agents   import router as agents_router
 from app.api.routes.rag      import router as rag_router
+from app.api.routes.knowledge import router as knowledge_router
+from app.api.routes.graph import router as graph_router
+from app.api.routes.continuity import router as continuity_router
+from app.api.routes.account import router as account_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    settings.validate_runtime()
     logger.info("Starting NeuroFusion AI...")
     await connect_db()
     await connect_redis()
     logger.info("Ready at http://localhost:8000")
     logger.info("API Docs at http://localhost:8000/api/docs")
-    yield
-    logger.info("Shutting down...")
+    try:
+        yield
+    finally:
+        await disconnect_db()
+        logger.info("Shutting down...")
 
 
 app = FastAPI(
-    title="NeuroFusion AI · NeuroSense", version="4.0.0",
+    title="NeuroSense AI Workspace", version="5.0.0",
     description="Personal AI assistant with grounded, versioned long-term NeuroSense memory",
     lifespan=lifespan, docs_url="/api/docs", redoc_url="/api/redoc",
 )
@@ -45,8 +53,12 @@ app.include_router(user_router)
 app.include_router(project_router)
 app.include_router(agents_router)
 app.include_router(rag_router)
+app.include_router(knowledge_router)
+app.include_router(graph_router)
+app.include_router(continuity_router)
+app.include_router(account_router)
 
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "app": settings.APP_NAME, "version": "4.0.0", "memory": "NeuroSense"}
+    return {"status": "ok", "app": settings.APP_NAME, "version": "5.0.0", "memory": "NeuroSense"}

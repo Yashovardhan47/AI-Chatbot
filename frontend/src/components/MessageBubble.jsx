@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Copy, Check, Lightbulb, Volume2, ThumbsUp, ThumbsDown } from "lucide-react";
 import AIAvatar from "./AIAvatar";
 import { Link } from "react-router-dom";
+import api from "../services/api";
+import toast from "react-hot-toast";
 
 function CodeBlock({ lang, code }) {
   const [copied, setCopied] = useState(false);
@@ -59,10 +61,15 @@ function ConfBadge({ value }) {
   return <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${cls}`}>{value}% confident</span>;
 }
 
-export default function MessageBubble({ message, isLast, onSpeak }) {
+export default function MessageBubble({ message, chatId, isLast, onSpeak }) {
   const isUser = message.role === "user";
   const [copied, setCopied] = useState(false);
   const [feedback, setFeedback] = useState(null);
+  async function giveFeedback(value) {
+    if (!chatId || !message.id) return;
+    try { await api.post(`/chat/${chatId}/messages/${message.id}/feedback`, { rating: value === "up" ? 1 : -1 }); setFeedback(value); }
+    catch { toast.error("Unable to save feedback"); }
+  }
 
   if (isUser) return (
     <div className="flex justify-end mb-5">
@@ -95,8 +102,8 @@ export default function MessageBubble({ message, isLast, onSpeak }) {
               {copied ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
             </button>
             {onSpeak && <button onClick={onSpeak} className="p-1.5 rounded-lg text-gray-700 hover:text-gray-300 hover:bg-gray-800 transition-colors"><Volume2 size={12} /></button>}
-            <button onClick={() => setFeedback("up")} className={`p-1.5 rounded-lg transition-colors ${feedback === "up" ? "text-green-400" : "text-gray-700 hover:text-gray-300 hover:bg-gray-800"}`}><ThumbsUp size={12} /></button>
-            <button onClick={() => setFeedback("down")} className={`p-1.5 rounded-lg transition-colors ${feedback === "down" ? "text-red-400" : "text-gray-700 hover:text-gray-300 hover:bg-gray-800"}`}><ThumbsDown size={12} /></button>
+            <button aria-label="Helpful answer" onClick={() => giveFeedback("up")} className={`p-1.5 rounded-lg transition-colors ${feedback === "up" ? "text-green-400" : "text-gray-700 hover:text-gray-300 hover:bg-gray-800"}`}><ThumbsUp size={12} /></button>
+            <button aria-label="Unhelpful answer" onClick={() => giveFeedback("down")} className={`p-1.5 rounded-lg transition-colors ${feedback === "down" ? "text-red-400" : "text-gray-700 hover:text-gray-300 hover:bg-gray-800"}`}><ThumbsDown size={12} /></button>
           </div>
         )}
         {!message.streaming && (message.confidence != null || message.reasoning || message.sources) && (
@@ -117,10 +124,10 @@ export default function MessageBubble({ message, isLast, onSpeak }) {
         )}
         {!message.streaming && message.memory_receipt?.used?.length > 0 && (
           <details className="mt-2 text-xs text-violet-300">
-            <summary className="cursor-pointer">NeuroSense used {message.memory_receipt.used.length} memories · {message.memory_receipt.context_chars} context characters</summary>
+            <summary className="cursor-pointer">NeuroSense used {message.memory_receipt.used.length} evidence entries · {message.memory_receipt.context_chars} context characters</summary>
             <div className="mt-2 space-y-2 rounded-xl border border-violet-500/20 bg-violet-500/5 p-3">
               {message.memory_receipt.used.map(item => <div key={item.id}>
-                <Link className="underline hover:text-white" to={`/memory?memory=${item.id}`}>View memory · version {item.version}</Link>
+                <Link className="underline hover:text-white" to={item.kind === "document" ? `/knowledge?document=${item.document_id}` : item.kind === "task" ? "/continuity" : item.kind === "episode" ? `/chat/${item.chat_id}` : `/memory?memory=${item.id}`}>View {item.kind || "memory"} · version {item.version}</Link>
                 <p className="text-gray-400 mt-0.5">{item.reason}</p>
               </div>)}
             </div>

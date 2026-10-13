@@ -1,0 +1,72 @@
+services:
+  mongo:
+    image: mongo:7.0.14
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-neurosense}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:?Set MONGO_PASSWORD in .env}
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+  api:
+    build: ./backend
+    environment: &backend_env
+      DEBUG: ${DEBUG:-true}
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
+      MONGO_URI: mongodb://${MONGO_USER:-neurosense}:${MONGO_PASSWORD}@mongo:27017/neurofusion?authSource=admin
+      DB_NAME: neurofusion
+      REDIS_URL: redis://redis:6379
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
+      AI_PROVIDER: ${AI_PROVIDER:-auto}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
+      OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-llama3.2}
+      EMBEDDINGS_PROVIDER: ${EMBEDDINGS_PROVIDER:-none}
+      EMBEDDINGS_MODEL: ${EMBEDDINGS_MODEL:-embeddinggemma}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      MAIL_SERVER: ${MAIL_SERVER:-smtp.gmail.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+    depends_on:
+      mongo: {condition: service_healthy}
+      redis: {condition: service_started}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+  worker:
+    build: ./backend
+    command: ["python", "-m", "app.worker"]
+    environment: *backend_env
+    depends_on:
+      mongo: {condition: service_healthy}
+    restart: unless-stopped
+  web:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: /api
+        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+    ports: ["8080:80"]
+    depends_on:
+      api: {condition: service_healthy}
+    restart: unless-stopped
+  ollama:
+    image: ollama/ollama:latest
+    profiles: [local-ai]
+    volumes: ["ollama_data:/root/.ollama"]
+    restart: unless-stopped
+volumes:
+  mongo_data:
+  ollama_data:

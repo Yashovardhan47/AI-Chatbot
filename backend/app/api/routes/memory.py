@@ -9,6 +9,9 @@ from app.middleware.auth_dep import get_current_user
 from app.models.user import User
 from app.models.project import Project
 from app.models.memory import Memory, MemoryCategory, MemoryKind
+from app.models.workspace import MemoryEdge, MemoryFeedback, SessionDigest
+from app.core.config import settings
+from app.services.embeddings import encode_texts
 from app.services.memory_logic import Candidate, fingerprint, safe_fact, tokens, utc_naive, observation_order
 from app.services.memory_service import recall, serialize, upsert_memory
 from app.services.memory_guard import memory_write_guard, invalidate_captures
@@ -106,7 +109,7 @@ async def create_memory(body: MemoryInput, current_user: User = Depends(get_curr
     candidate = Candidate(fact=fact, quote=fact, slot=body.slot or "note." + fingerprint(fact),
                           category=body.category, kind=body.kind, confidence=100, explicit=True)
     memory, action = await upsert_memory(str(current_user.id), candidate, body.project_id,
-                                         provenance="user", confirmed=True, expires_at=expiry)
+                                         provenance="user", confirmed=True, expires_at=expiry, auth_version=current_user.auth_version)
     return {"memory": serialize(memory), "action": action}
 
 
@@ -115,6 +118,8 @@ async def clear_memories(current_user: User = Depends(get_current_user)):
     # Hard deletion includes all revisions and any old inactive records.
     async with memory_write_guard(str(current_user.id)):
         await Memory.find({"user_id": str(current_user.id)}).delete()
+        for model in (MemoryEdge, MemoryFeedback, SessionDigest):
+            await model.find({"user_id": str(current_user.id)}).delete()
         await invalidate_captures(str(current_user.id))
     return {"message": "All memory facts and revisions deleted. Chat transcripts are separate."}
 
@@ -169,5 +174,24 @@ async def delete_memory(memory_id: str, current_user: User = Depends(get_current
     async with memory_write_guard(str(current_user.id)):
         memory = await owned_memory(memory_id, str(current_user.id))
         await memory.delete()
+        await MemoryEdge.find({"user_id": str(current_user.id), "$or": [{"source_id": memory_id}, {"target_id": memory_id}]}).delete()
         await invalidate_captures(str(current_user.id))
     return {"message": "Memory and all its revisions deleted. Chat transcripts are separate."}
+
+
+@router.post("/index")
+async def index_memories(current_user: User = Depends(get_current_user)):
+    memories = await Memory.find({"user_id": str(current_user.id), "active": True}).to_list()
+    pending = [m for m in memories if m.embedding_model != settings.EMBEDDINGS_MODEL or m.embedding_fingerprint != fingerprint(m.fact) or not m.embedding][:24]
+    if not pending:
+        return {"indexed": 0}
+    try:
+        vectors = await encode_texts([m.fact for m in pending])
+    except Exception:
+        raise HTTPException(503, "Configure an available Ollama embedding model to build the index")
+    indexed = 0
+    for memory, vector in zip(pending, vectors):
+        result = await Memory.get_motor_collection().update_one({"_id": memory.id, "user_id": str(current_user.id), "fact": memory.fact},
+            {"$set": {"embedding": vector, "embedding_model": settings.EMBEDDINGS_MODEL, "embedding_fingerprint": fingerprint(memory.fact)}})
+        indexed += result.matched_count
+    return {"indexed": indexed}

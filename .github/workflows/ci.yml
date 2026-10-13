@@ -1,0 +1,39 @@
+name: NeuroSense checks
+on: [push, pull_request]
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:7.0.14
+        ports: ["27017:27017"]
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand(\"ping\").ok'"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: pip install -r requirements-dev.txt
+        working-directory: backend
+      - run: python -m pytest -q
+        working-directory: backend
+        env:
+          NEUROSENSE_TEST_MONGO_URI: mongodb://localhost:27017
+          PYTHONDONTWRITEBYTECODE: '1'
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci
+        working-directory: frontend
+      - run: npm test
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+      - run: docker compose config --quiet
+        env:
+          SECRET_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+          MONGO_PASSWORD: local_ci_test_password_only

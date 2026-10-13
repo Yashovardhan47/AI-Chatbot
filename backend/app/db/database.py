@@ -6,23 +6,30 @@ from app.models.chat    import Chat
 from app.models.memory  import Memory
 from app.models.memory_state import MemoryState
 from app.models.project import Project
+from app.models.workspace import (KnowledgeDocument, MemoryEdge, MemoryFeedback, SessionDigest,
+                                  Commitment, Notification, AuthSession, TokenRevocation)
 import redis.asyncio as aioredis
 from app.core.logger import logger
 
 _redis_client = None
+_mongo_client = None
+DOCUMENT_MODELS = [User, Chat, Memory, MemoryState, Project, KnowledgeDocument, MemoryEdge,
+                   MemoryFeedback, SessionDigest, Commitment, Notification, AuthSession, TokenRevocation]
 
 
 async def connect_db():
+    global _mongo_client
     try:
         client = AsyncIOMotorClient(settings.MONGO_URI, serverSelectionTimeoutMS=5000)
+        _mongo_client = client
         await client.admin.command("ping")
         await init_beanie(
             database=client[settings.DB_NAME],
-            document_models=[User, Chat, Memory, MemoryState, Project],
+            document_models=DOCUMENT_MODELS,
         )
         logger.info("MongoDB connected")
-    except Exception as e:
-        logger.error(f"MongoDB failed: {e}")
+    except Exception:
+        logger.error("MongoDB connection failed")
         logger.error("Make sure MongoDB is running: run 'mongod' in a terminal")
         raise
 
@@ -40,3 +47,13 @@ async def connect_redis():
 
 def get_redis():
     return _redis_client
+
+
+async def disconnect_db():
+    global _mongo_client, _redis_client
+    if _redis_client:
+        await _redis_client.aclose()
+        _redis_client = None
+    if _mongo_client:
+        _mongo_client.close()
+        _mongo_client = None

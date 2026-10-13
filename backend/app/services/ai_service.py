@@ -1,4 +1,6 @@
 import re
+import json
+import httpx
 from typing import AsyncGenerator
 from app.core.config import settings
 
@@ -16,7 +18,15 @@ def get_client():
 
 DEFAULT_MODEL  = "claude-sonnet-4-6"
 MAX_TOKENS     = 4096
-ALLOWED_MODELS = {"claude-sonnet-4-6", "claude-opus-4-6", "claude-haiku-4-5"}
+ALLOWED_MODELS = {"claude-sonnet-4-6", "claude-opus-4-6", "claude-haiku-4-5", "local"}
+
+
+def provider_status():
+    provider = settings.AI_PROVIDER
+    if provider == "auto":
+        provider = "anthropic" if settings.ANTHROPIC_API_KEY else "ollama"
+    return {"provider": provider, "configured": bool(settings.ANTHROPIC_API_KEY) if provider == "anthropic" else bool(settings.OLLAMA_URL),
+            "requires_local_service": provider == "ollama", "local_model": settings.OLLAMA_CHAT_MODEL if provider == "ollama" else None}
 
 MODE_PROMPTS = {
     "auto":       "Detect the best response style from context.",
@@ -76,7 +86,7 @@ def extract_metadata(raw: str) -> dict:
 
     return {
         "clean_text": clean,
-        "confidence": int(conf.group(1)) if conf else None,
+        "confidence": max(0, min(100, int(conf.group(1)))) if conf else None,
         "reasoning":  reas.group(1).strip() if reas else None,
         "memory":     memory_val,
         "sources":    src.group(1).strip() if src else None,
@@ -86,6 +96,23 @@ def extract_metadata(raw: str) -> dict:
 async def stream_ai_response(user_content, history, system_prompt, web_search=False, model=DEFAULT_MODEL) -> AsyncGenerator[str, None]:
     if model not in ALLOWED_MODELS:
         model = DEFAULT_MODEL
+    provider = "ollama" if model == "local" else provider_status()["provider"]
+    if provider == "ollama":
+        if web_search or any(block.get("type") == "image" for block in user_content):
+            raise ValueError("Web search and remote image attachments require the Anthropic provider")
+        text = "\n".join(block.get("text", "") for block in user_content)
+        async with httpx.AsyncClient(timeout=httpx.Timeout(120, connect=5)) as client:
+            async with client.stream("POST", settings.OLLAMA_URL.rstrip("/") + "/api/chat", json={"model": settings.OLLAMA_CHAT_MODEL,
+                "messages": [{"role": "system", "content": system_prompt}, *history, {"role": "user", "content": text}], "stream": True}) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line:
+                        data = json.loads(line)
+                        if data.get("error"):
+                            raise ValueError("Local model could not complete the request")
+                        if data.get("message", {}).get("content"):
+                            yield data["message"]["content"]
+        return
     client = get_client()
     tools  = [{"type": "web_search_20250305", "name": "web_search"}] if web_search else []
     async with client.messages.stream(
@@ -95,3 +122,10 @@ async def stream_ai_response(user_content, history, system_prompt, web_search=Fa
     ) as stream:
         async for text in stream.text_stream:
             yield text
+
+
+async def complete_ai(prompt, system="", model=DEFAULT_MODEL):
+    result = ""
+    async for part in stream_ai_response([{"type": "text", "text": prompt}], [], system, False, model):
+        result += part
+    return result

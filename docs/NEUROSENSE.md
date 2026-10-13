@@ -2,12 +2,14 @@
 
 ## Goal and repository analysis
 
-NeuroSense is the persistent memory engine integrated into the existing NeuroFusion
-FastAPI + MongoDB + React chatbot. It retains explicitly stated user facts across
-sessions and server restarts, retrieves relevant evidence, and records how facts
-change. The remote branch is `chatbot-update`; `chatbot_update` was not present.
+NeuroSense v5 expands the existing NeuroFusion FastAPI + MongoDB + React chatbot
+into a persistent personal AI workspace. It retains explicitly stated user facts,
+source documents, saved user-quote sessions and user-created commitments across
+sessions and server restarts. The remote branch is `chatbot-update`;
+`chatbot_update` was not present. See [RUN_WORKSPACE.md](RUN_WORKSPACE.md) for setup
+and [VALIDATION.md](VALIDATION.md) for tested behavior and remaining limits.
 
-Before this change the application stored a single `MEMORY:` string generated in
+Before the v4 memory integration the application stored a single `MEMORY:` string generated in
 an assistant answer, compared exact strings for duplicates, and supplied the newest
 50 records to every chat. Three recent raw chats were also injected into new
 sessions. Facts had no update history, project scope or retrieval explanation.
@@ -32,7 +34,9 @@ Deletion merely marked records inactive. There were no backend memory tests.
   their project. All reads, writes, revisions and sources are owner-scoped.
 - Recall uses BM25 over terms, character trigrams, bounded recency, importance and
   optional user pins. It examines the owner's scoped archive rather than a newest
-  50-item window. It is a lexical retriever, not an embedding model.
+  50-item window. Optional Ollama embeddings add semantic candidates, with a visible
+  lexical fallback when indexing or the provider is unavailable. Changed facts and
+  past versions never reuse a vector that belongs to different text.
 - Whole facts fit an exact character budget. Oversized evidence is skipped, never
   chopped into misleading fragments. This budget is not a provider token count.
 - Recall supports explicit `as_of` dates and supplies past versions for historical
@@ -50,8 +54,37 @@ Deletion merely marked records inactive. There were no backend memory tests.
   previously generated answer text remain separate; deleting memory is not transcript
   erasure. Previously opened pages or in-flight answers may still display prior
   evidence. Normal new turns never mine old chats to silently recreate deleted facts.
-- Chat and the multi-agent endpoint use the same scoped memory retrieval path.
-  Document RAG remains grounded in the supplied document rather than personal facts.
+- Knowledge Library imports readable PDF, DOCX and UTF-8 text, Markdown, CSV, TSV,
+  JSON and logs. Originals and exact text passages remain available to the owner.
+  Questions retrieve passages with source identifiers and PDF page numbers, with
+  optional AI answers. Imports are deduplicated per owner/project and bounded by
+  file, extracted-text and library quotas. Scanned documents require external OCR.
+- Memory Graph stores explicit user-defined related, supporting, dependency or
+  contradiction links. Recall can follow two hops from relevant seed facts, only
+  within eligible confirmed, unexpired, owner/project-scoped records. A link is
+  retrieval context; it does not prove a relationship or automatically resolve a
+  contradiction. Answer feedback provides bounded ranking adjustments to the exact
+  cited memory version, rather than fine-tuning the model.
+- Continuity saves safe user quotes from conversations, with message identifiers,
+  and recalls pending commitments. Automatic snapshots are opt-in. Private turns
+  and turns made while account memory is paused stay excluded from later snapshots.
+  Commitments are explicitly created by the user, including from remembered goals
+  or generated plans; generated suggestions are never automatically scheduled.
+- A separate Python worker claims due commitments, creates deduplicated in-app
+  reminders and advances daily/weekly recurrence using the chosen IANA timezone.
+  Version checks protect task edits. Optional SMTP delivery requires account opt-in,
+  retries failures and rechecks task/account eligibility before sending.
+- Chat and the specialist workflow use one combined evidence packet for personal
+  facts, documents, session quotes and commitments, under an exact character budget.
+  Every source kind has its own citation format and inspectable reference receipt.
+- Authentication persists hashed rotating refresh tokens and access-token
+  revocations in MongoDB. Password changes/resets invalidate prior sessions.
+  Workspace export excludes authentication secrets. Explicit account data erasure
+  removes the workspace, advances the account session version and rejects delayed
+  document imports from the old session.
+- AI generation supports configured Anthropic or local Ollama. Provider failures
+  are explicit; unsupported local web/image requests fail instead of pretending to
+  search. Model confidence values are self-assessed, not calibrated accuracy.
 
 ## Write, retrieve and answer
 
@@ -62,7 +95,9 @@ Deletion merely marked records inactive. There were no backend memory tests.
    Owner writes share a MongoDB lease. Deletion, correction and manual saves advance
    a generation counter, cancelling extraction that started before those actions.
    Older delayed turns cannot overwrite a newer observation in the same slot.
-5. Rank allowed current facts and pack whole evidence entries within the budget.
+5. Rank eligible lexical/semantic facts, follow explicit scoped links and apply
+   bounded feedback. Add relevant document passages, session quotes and commitments
+   as whole evidence entries within the combined character budget.
 6. Provide structured evidence to the AI as untrusted data, with source IDs.
 7. Save the answer and a receipt describing selected IDs, versions, scores and budget.
 
@@ -127,7 +162,21 @@ and dataset exposure, and release reproducible outputs before claiming novelty.
 | `PATCH /api/memory/{id}` | Correct, confirm or pin using `expected_version` |
 | `DELETE /api/memory/{id}` | Delete the fact and all revisions |
 | `DELETE /api/memory/` | Delete all memory records, including inactive legacy records |
-| `PUT /api/users/preferences` | Set `memory_enabled` and `memory_auto_capture` |
+| `POST /api/memory/index` | Batch-index current facts with configured embeddings |
+| `GET, POST /api/memory-graph/` | Inspect nodes and save explicit relationships |
+| `GET /api/knowledge/` | Paginated source-document library |
+| `POST /api/knowledge/notes`, `/upload`, `/query` | Save, import and retrieve supporting passages |
+| `GET /api/knowledge/{id}/download` | Download the owner's original file |
+| `POST /api/knowledge/{id}/index` | Batch-index document passages |
+| `GET /api/continuity/overview` | Live workspace counts and provider configuration |
+| `GET, POST /api/continuity/tasks` | List and create commitments |
+| `PATCH, DELETE /api/continuity/tasks/{id}` | Versioned edit, complete, snooze or delete |
+| `POST /api/continuity/sessions/{chat_id}` | Save eligible user-quote context |
+| `GET /api/continuity/notifications` | Read the in-app reminder inbox |
+| `POST /api/chat/{chat_id}/messages/{message_id}/feedback` | Rate an actual stored answer's cited evidence |
+| `GET /api/account/export` | Export owner workspace data |
+| `DELETE /api/account/data` | Erase workspace with explicit typed confirmation |
+| `PUT /api/users/preferences` | Control capture, snapshots, library use and reminder email |
 
 Example recall request:
 
@@ -137,20 +186,24 @@ Example recall request:
 
 ## Limits and next steps
 
-Retrieval currently scans the allowed archive and scales linearly; indexes prepare
-for candidate filtering, but a full search/vector index and a graph retriever are
-not implemented. Very large archives and many revisions need separate collections
-and indexed candidate retrieval before reaching MongoDB's document size limit.
-Extraction is conservative and English-first. Semantic equivalence, multilingual
-capture, external document ingestion, multi-hop graph reasoning, temporal event
-inference, learned memory admission and measured uncertainty remain future work.
+Retrieval scans the allowed archive and computes vectors in the application; a
+dedicated approximate-nearest-neighbor index is not implemented. Very large
+archives and many revisions need separate collections and indexed candidate
+retrieval before reaching MongoDB's document size limit. Graph expansion follows
+stored links; it is not learned causal reasoning. Extraction is conservative and
+English-first. Universal multilingual capture, automatic entity/contradiction
+resolution, temporal event inference, learned memory admission and calibrated
+uncertainty remain research work. Semantic retrieval depends on the configured
+embedding model and manual indexing.
 
 Per-record edits use atomic compare-and-swap and unique slot indexes. A per-owner
 MongoDB lease serializes writes across workers; a generation counter prevents
 pending extraction from undoing owner deletion or correction. Leases expire after
 60 seconds to recover from crashes; pathological stalls beyond that require
 transactions or stronger fencing. An in-flight answer already has its context.
-Production also needs
-database backups, transport/storage encryption, quotas, secure secret provisioning
-and provider integration tests. The memory feature does not train/fine-tune the
+Production also needs database backups, transport/storage encryption, operational
+monitoring, load tests and live provider integration checks. Docker configuration
+and CI are supplied, but successful local unit tests alone do not establish
+production readiness. SMTP attempts can be duplicated after ambiguous network
+failures. The memory feature does not train/fine-tune the
 underlying LLM; it learns facts by storing and retrieving them.

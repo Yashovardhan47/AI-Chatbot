@@ -14,6 +14,7 @@ from app.models.project import Project
 from app.main import app
 from app.middleware.auth_dep import get_current_user
 from app.core.config import settings
+from app.db.database import DOCUMENT_MODELS
 
 
 @pytest_asyncio.fixture
@@ -22,6 +23,10 @@ async def database(monkeypatch):
     monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", "")
     monkeypatch.setattr(settings, "MEMORY_LLM_EXTRACTION", False)
     monkeypatch.setattr(settings, "SECRET_KEY", "neurosense-test-key-only")
+    monkeypatch.setattr(settings, "EMBEDDINGS_PROVIDER", "none")
+    monkeypatch.setattr(settings, "MAIL_USERNAME", "")
+    monkeypatch.setattr(settings, "MAIL_PASSWORD", "")
+    monkeypatch.setattr(settings, "DEBUG", True)
     uri = os.environ.get("NEUROSENSE_TEST_MONGO_URI")
     mongo = AsyncIOMotorClient(uri) if uri else AsyncMongoMockClient()
     if uri:
@@ -30,7 +35,7 @@ async def database(monkeypatch):
         mongo.get_io_loop = asyncio.get_running_loop
     database = mongo["neurosense_tests_" + uuid4().hex]
     await init_beanie(database=database,
-                      document_models=[Memory, MemoryState, User, Chat, Project])
+                      document_models=DOCUMENT_MODELS)
     if not uri:
         # mongomock-motor.create_indexes loses partialFilterExpression. Install
         # the actual index explicitly; real MongoDB uses the model definition.

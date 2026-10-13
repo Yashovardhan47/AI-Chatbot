@@ -68,6 +68,7 @@ export const memoryAPI = {
   update: (id, data) => api.patch(`/memory/${id}`, data),
   recall: data => api.post("/memory/recall", data),
   stats: () => api.get("/memory/stats"),
+  index: () => api.post("/memory/index"),
   delete: id => api.delete(`/memory/${id}`),
   clearAll: () => api.delete("/memory/"),
 };
@@ -84,8 +85,38 @@ export const userAPI = {
   deactivate:    () => api.delete("/users/"),
 };
 
+export const knowledgeAPI = {
+  list: params => api.get("/knowledge/", { params }),
+  note: body => api.post("/knowledge/notes", body),
+  upload: form => api.post("/knowledge/upload", form),
+  get: id => api.get(`/knowledge/${id}`),
+  query: body => api.post("/knowledge/query", body),
+  index: id => api.post(`/knowledge/${id}/index`),
+  delete: id => api.delete(`/knowledge/${id}`),
+  download: id => api.get(`/knowledge/${id}/download`, { responseType: "blob" }),
+};
+export const graphAPI = { get: params => api.get("/memory-graph/", { params }),
+  create: body => api.post("/memory-graph/", body), delete: id => api.delete(`/memory-graph/${id}`) };
+export const continuityAPI = {
+  overview: () => api.get("/continuity/overview"), tasks: params => api.get("/continuity/tasks", { params }),
+  create: body => api.post("/continuity/tasks", body), update: (id, body) => api.patch(`/continuity/tasks/${id}`, body),
+  delete: id => api.delete(`/continuity/tasks/${id}`), sessions: () => api.get("/continuity/sessions"),
+  pinSession: id => api.post(`/continuity/sessions/${id}`), deleteSession: id => api.delete(`/continuity/sessions/${id}`),
+  notifications: () => api.get("/continuity/notifications"), read: id => api.patch(`/continuity/notifications/${id}/read`),
+};
+export const accountAPI = { export: () => api.get("/account/export", { responseType: "blob" }),
+  erase: confirmation => api.delete("/account/data", { data: { confirmation } }) };
+export function saveDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a"); anchor.href = url; anchor.download = filename;
+  document.body.appendChild(anchor); anchor.click(); anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export function createChatSocket(chatId, token, { onDelta, onDone, onChatCreated, onError, onClose }) {
-  const base = (import.meta.env.VITE_API_URL || "http://localhost:8000/api").replace(/^http/, "ws");
+  const parsed = new URL(import.meta.env.VITE_API_URL || "http://localhost:8000/api", window.location.origin);
+  parsed.protocol = parsed.protocol === "https:" ? "wss:" : "ws:";
+  const base = parsed.href.replace(/\/$/, "");
   const ws = new WebSocket(`${base}/chat/ws/${chatId}?token=${token}`);
   ws.onmessage = e => {
     try {
@@ -97,7 +128,7 @@ export function createChatSocket(chatId, token, { onDelta, onDone, onChatCreated
     } catch {}
   };
   ws.onerror = () => onError?.("Chat connection failed. Reload to reconnect.");
-  ws.onclose = () => onClose?.();
+  ws.onclose = event => onClose?.(event);
   return ws;
 }
 

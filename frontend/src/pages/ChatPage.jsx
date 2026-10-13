@@ -9,6 +9,7 @@ import FilePreview from "../components/FilePreview";
 import Sidebar, { AI_MODELS } from "../components/sidebar/Sidebar";
 import LivingBackground from "../components/LivingBackground";
 import AIAvatar from "../components/AIAvatar";
+import { continuityAPI } from "../services/api";
 
 const MODES = [
   { key: "auto", label: "Auto", color: "#534AB7" },
@@ -42,6 +43,7 @@ export default function ChatPage() {
   const recognRef = useRef(null);
 
   useEffect(() => { fetchChats(); fetchMemories(); fetchHistory(); }, []);
+  useEffect(() => { continuityAPI.overview().then(({ data }) => { if (data.provider.provider === "ollama") setModel("local"); }).catch(() => {}); }, []);
   useEffect(() => () => useChatStore.getState().disconnect(), []);
   useEffect(() => {
     if (id) { openChat(id); }
@@ -135,6 +137,7 @@ export default function ChatPage() {
             <Brain size={11} />
             {memoryTotal > 0 && <span className="bg-violet-500 text-white rounded-full w-3.5 h-3.5 flex items-center justify-center text-[8px]">{memoryTotal > 99 ? "99+" : memoryTotal}</span>}
           </button>
+          {activeChat && <button title="Save this conversation as session memory" onClick={async () => { try { await continuityAPI.pinSession(activeChat.id); toast.success("Session snapshot saved"); } catch (err) { toast.error(err.response?.data?.detail || "Unable to save session"); } }} className="hidden sm:block text-[10px] text-gray-400 border border-gray-700 rounded-full px-2 py-1">Save session</button>}
           <button onClick={() => setPrivateMode(value => !value)} aria-pressed={privateMode}
             title="Skip memory recall and capture for this message. Chat transcripts are still saved."
             className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] border ${privateMode ? "text-amber-300 border-amber-500/40 bg-amber-500/10" : "text-gray-400 border-gray-700"}`}>
@@ -157,7 +160,7 @@ export default function ChatPage() {
               </div>
             </div>
           )}
-          {messages.map((msg, i) => <MessageBubble key={msg.id || i} message={msg} isLast={i === messages.length - 1} onSpeak={() => speakText(msg.content)} />)}
+          {messages.map((msg, i) => <MessageBubble key={msg.id || i} message={msg} chatId={activeChat?.id} isLast={i === messages.length - 1} onSpeak={() => speakText(msg.content)} />)}
           {streaming && streamBuffer && <MessageBubble message={{ role: "assistant", content: streamBuffer, streaming: true }} />}
           {streaming && !streamBuffer && (
             <div className="flex gap-3 mb-5">

@@ -1,46 +1,54 @@
-# NeuroSense integration validation
+# NeuroSense v5 validation
 
-Validation date: 2026-10-09. All test inputs are synthetic. No live user database
-or paid AI provider was used.
+Validation date: 2026-10-13. All inputs are synthetic. No live user database,
+paid AI request or real reminder email was used.
 
-## Completed checks
+## Completed local checks
 
-- **36 backend tests**: quoted extraction, conservative rejection of unsupported
-  inputs, archive recall after 150 newer facts, ODM reinitialization against the
-  same persisted test database, duplicates, current/history/as-of semantics,
-  bounded evidence size, user/project boundaries, expiry, pins, manual corrections,
-  optimistic-version conflicts, pagination, confirmation of legacy facts, deletion,
-  pausing, and privacy enforcement through the actual WebSocket route.
-- Slow extraction tests: deletion, clear-all, correction and pause cancel pending
-  capture. Older delayed turns cannot overwrite a newer observation. Microsecond
-  ordering is retained separately from BSON's millisecond datetime precision.
-- Authentication checks: refresh tokens, inactive accounts, foreign chats and
-  deleted chats cannot open the memory-backed WebSocket route.
-- **9 frontend tests** using jsdom and Testing Library: Memory Studio source/history,
-  add/correct/pin/delete API payloads and real IDs, recall evidence, privacy controls,
-  load failures, socket readiness, stale-chat responses, clean final response text,
-  logout cleanup and late responses belonging to a prior account.
-- Frontend Vite production build completed successfully.
-- The synthetic retrieval harness ran successfully on 166 memory records and 8
-  cases. It compares a recency window, flat lexical evidence and NeuroSense.
-  This is a reproducible regression demonstration, not an external benchmark.
+- **64 backend tests** pass. Existing coverage exercises grounded extraction,
+  archive recall, slot revisions/current/history/as-of semantics, character budgets,
+  user/project boundaries, expiry, pins, pagination, legacy confirmation, deletion,
+  privacy enforcement and cancellation of delayed captures through API/WebSocket paths.
+- New workspace coverage exercises text/PDF/DOCX import, exact page citations,
+  deduplication, owner/scope checks, original download, removal and quotas; two-hop
+  graph expansion and exclusion of expired linked facts; fake semantic vectors and
+  stale-vector rejection; user-only snapshots, early/late context and exclusion of
+  private turns; combined context budgets and the library preference.
+- Reminder checks exercise concurrent due claims, deduplicated notifications,
+  recurring schedules across daylight saving, task version conflicts, snoozing,
+  read state, opt-out and SMTP retries with a mock sender.
+- Authentication checks exercise local registration/sign-in, single-use refresh
+  rotation, MongoDB-backed logout without Redis, verified Google identity with a
+  mock verifier, inactive-account rejection and workspace export/erasure. A delayed
+  document import cannot restore data after the account session version changes.
+- Provider checks use HTTPX MockTransport for the Ollama streaming protocol and
+  fake plan output for schema validation. Local live-web requests fail explicitly.
+- **14 frontend tests** pass using jsdom and Testing Library. They cover Memory
+  Studio actions and evidence, WebSocket readiness and stale response handling,
+  account cleanup, document-note/search interaction, explicit graph relationship
+  payloads, task completion/version payloads, reminder read state and HTTP/HTTPS
+  WebSocket URL construction behind the same-origin proxy.
+- Vite production build succeeds, with lazy chunks for the workspace pages.
+- Python syntax, whitespace and deployment YAML checks pass. The synthetic memory
+  harness runs on 166 records and 8 cases; it is a regression demonstration, not
+  an external benchmark or a measurement of model answer accuracy.
 
 ## Validation limits
 
-Backend tests use `mongomock-motor`, not a live MongoDB server. The test fixture
-explicitly repairs a mock limitation that drops partial-index options; the model
-declares the intended partial unique index. The fixture accepts a real test server
-through `NEUROSENSE_TEST_MONGO_URI`; each run uses and deletes a unique temporary
-database. A temporary MongoDB binary could not start in this workspace.
+Local backend tests use `mongomock-motor`. The fixture repairs a mock limitation
+that loses partial-index options; real MongoDB uses the declared model index.
+`NEUROSENSE_TEST_MONGO_URI` selects a real test server and creates/deletes a unique
+throwaway database. The supplied GitHub Actions workflow uses a MongoDB service,
+checks the frontend and validates Compose configuration; adding this workflow is
+not evidence that a remote run has passed.
 
-AI responses were stubbed in integration tests. Optional provider-based extraction,
-real Anthropic streaming, Google OAuth, SMTP and Cloudinary were not tested against
-live services. Rule extraction and manual memory/recall require no AI key.
-
-Frontend tests verify interaction and state behavior in jsdom. Native browser
-processes failed to start in this workspace, so screenshot, responsive layout and
-real-browser end-to-end verification remain outstanding. Production deployment,
-load tests and LoCoMo/LongMemEval evaluation were not performed.
+No live Anthropic, Ollama model, Google OAuth, SMTP or Cloudinary integration was
+executed. Protocol mocks validate the application contract, not provider uptime,
+model quality or email delivery. Native MongoDB and browser processes could not
+start in this workspace, and Docker is unavailable here. Container builds,
+responsive screenshots and actual browser end-to-end checks therefore remain
+outstanding. No production deployment, load test, LoCoMo or LongMemEval evaluation
+was performed. See RUN_WORKSPACE.md for the configuration needed to run the app.
 
 ## Reproduce
 
@@ -49,10 +57,15 @@ cd backend
 pip install -r requirements-dev.txt
 python -m pytest -q
 python -m evaluation.evaluate_memory
-# Optional: set NEUROSENSE_TEST_MONGO_URI to a disposable local test MongoDB.
+# Optional: set NEUROSENSE_TEST_MONGO_URI to a disposable test MongoDB.
 
 cd ../frontend
 npm ci
 npm test
 npm run build
+
+cd ..
+# After filling root .env with private values:
+docker compose config --quiet
+docker compose up --build -d
 ```

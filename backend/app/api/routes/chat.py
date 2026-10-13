@@ -10,6 +10,8 @@ from app.models.user    import User
 from app.models.chat    import Chat, Message, Attachment
 from app.services.ai_service import build_system_prompt, build_user_content, extract_metadata, stream_ai_response, ALLOWED_MODELS, DEFAULT_MODEL
 from app.services.memory_service import capture_turn, recall, prompt_context, receipt_references
+from app.services.workspace_context import gather_context
+from app.services.continuity_service import capture_session
 from app.api.routes.memory import owned_project
 from app.core.logger import logger
 
@@ -214,13 +216,15 @@ async def chat_ws(websocket: WebSocket, chat_id: str, token: str = Query(...)):
             att_objs     = [AttObj(a) for a in attachments]
             user_content = build_user_content(content, att_objs)
 
-            user_msg = Message(role="user", content=content,
+            user_msg = Message(role="user", content=content, private=not memory_enabled,
                 attachments=[Attachment(name=a.name, url=a.url, file_type=a.file_type) for a in att_objs])
             changes = {"updated_at": datetime.utcnow()}
             if (chat.title == "New Conversation" or chat.title.startswith("Today —")) and content:
                 changes["title"] = content[:55] + ("…" if len(content) > 55 else "")
-            await Chat.get_motor_collection().update_one({"_id": chat.id, "user_id": str(user.id)},
+            stored = await Chat.get_motor_collection().update_one({"_id": chat.id, "user_id": str(user.id)},
                 {"$push": {"messages": user_msg.model_dump()}, "$set": changes})
+            if not stored.matched_count:
+                raise HTTPException(404, "Conversation was removed")
 
             saved_memories = []
             memory_result = {"used": [], "context": "[]", "candidates": 0, "context_chars": 2,
@@ -230,10 +234,10 @@ async def chat_ws(websocket: WebSocket, chat_id: str, token: str = Query(...)):
                 try:
                     saved_memories = await capture_turn(str(user.id), content, str(chat.id), user_msg.id,
                                                         chat.project_id, user.preferences.memory_auto_capture,
-                                                        observed_at=user_msg.created_at)
+                                                        observed_at=user_msg.created_at, auth_version=user.auth_version)
                     refreshed_user = await User.get(user.id)
                     if refreshed_user and refreshed_user.is_active and refreshed_user.preferences.memory_enabled:
-                        memory_result = await recall(str(user.id), content, chat.project_id)
+                        memory_result = await gather_context(refreshed_user, content, chat.project_id)
                     else:
                         memory_result["disabled"] = True
                 except Exception:
@@ -260,8 +264,10 @@ async def chat_ws(websocket: WebSocket, chat_id: str, token: str = Query(...)):
                 {"$push": {"messages": ai_msg.model_dump()}, "$set": {"updated_at": datetime.utcnow()}})
 
             try:
-                user.stats.total_messages += 1
-                await user.save()
+                await User.get_motor_collection().update_one({"_id": user.id}, {"$inc": {"stats.total_messages": 1}})
+                fresh = await User.get(user.id)
+                if memory_enabled and fresh and fresh.preferences.memory_enabled and fresh.preferences.session_memory_enabled:
+                    await capture_session(await Chat.get(chat.id), str(user.id))
             except Exception:
                 pass
 
@@ -280,3 +286,26 @@ async def chat_ws(websocket: WebSocket, chat_id: str, token: str = Query(...)):
             await websocket.send_json({"type": "error", "message": "Unable to process this conversation; please reload"})
         except Exception:
             pass
+
+
+class FeedbackInput(BaseModel):
+    rating: int = Field(ge=-1, le=1)
+
+
+@router.post("/{chat_id}/messages/{message_id}/feedback")
+async def save_feedback(chat_id: str, message_id: str, body: FeedbackInput, user: User = Depends(get_current_user)):
+    from app.models.workspace import MemoryFeedback
+    from app.services.memory_guard import memory_write_guard
+    chat = await owned_chat(chat_id, str(user.id))
+    message = next((m for m in chat.messages if m.id == message_id and m.role == "assistant"), None)
+    if not message:
+        raise HTTPException(404, "Answer not found")
+    async with memory_write_guard(str(user.id)):
+        key = {"user_id": str(user.id), "chat_id": chat_id, "message_id": message_id}
+        references = (message.memory_receipt or {}).get("used", [])
+        existing = await MemoryFeedback.find_one(key)
+        if existing:
+            await existing.set({"rating": body.rating, "references": references})
+        else:
+            await MemoryFeedback(**key, rating=body.rating, references=references).insert()
+    return {"message": "Recall feedback saved"}

@@ -52,12 +52,18 @@ async def upload_files(files: List[UploadFile] = File(...), current_user: User =
 async def update_profile(body: UpdateProfileRequest, current_user: User = Depends(get_current_user)):
     if body.name:   current_user.name   = body.name
     if body.avatar: current_user.avatar = body.avatar
-    await current_user.save()
+    await current_user.set({"name": current_user.name, "avatar": current_user.avatar})
     return {"user": current_user.safe_dict()}
 
 
 @user_router.put("/preferences")
 async def update_preferences(body: UpdatePreferencesRequest, current_user: User = Depends(get_current_user)):
+    if body.timezone:
+        from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+        try:
+            ZoneInfo(body.timezone)
+        except ZoneInfoNotFoundError:
+            raise HTTPException(422, "Choose a valid IANA timezone")
     prefs = current_user.preferences
     if body.mode        is not None: prefs.mode        = body.mode
     if body.web_search  is not None: prefs.web_search  = body.web_search
@@ -66,8 +72,12 @@ async def update_preferences(body: UpdatePreferencesRequest, current_user: User 
     if body.language    is not None: prefs.language    = body.language
     if body.memory_enabled is not None: prefs.memory_enabled = body.memory_enabled
     if body.memory_auto_capture is not None: prefs.memory_auto_capture = body.memory_auto_capture
+    for field in ("session_memory_enabled", "knowledge_enabled", "reminder_emails", "timezone"):
+        value = getattr(body, field)
+        if value is not None:
+            setattr(prefs, field, value)
     current_user.preferences = prefs
-    await current_user.save()
+    await current_user.set({"preferences": prefs.model_dump()})
     return {"preferences": prefs.model_dump()}
 
 
@@ -75,8 +85,9 @@ async def update_preferences(body: UpdatePreferencesRequest, current_user: User 
 async def change_password(body: ChangePasswordRequest, current_user: User = Depends(get_current_user)):
     if not current_user.password or not verify_password(body.current_password, current_user.password):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
-    current_user.password = hash_password(body.new_password)
-    await current_user.save()
+    from app.models.workspace import AuthSession
+    await User.get_motor_collection().update_one({"_id": current_user.id}, {"$set": {"password": hash_password(body.new_password)}, "$inc": {"auth_version": 1}})
+    await AuthSession.find({"user_id": str(current_user.id)}).update({"$set": {"revoked": True}})
     return {"message": "Password updated"}
 
 

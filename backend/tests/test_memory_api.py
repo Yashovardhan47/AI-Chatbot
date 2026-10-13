@@ -11,6 +11,7 @@ from app.core.security import create_access_token, create_refresh_token
 from app.main import app
 from app.api.routes import chat as chat_route
 from app.services.memory_service import capture_turn
+from app.services.continuity_service import capture_session
 from app.services import memory_service
 from app.services.memory_logic import extract_rules
 
@@ -111,6 +112,10 @@ async def test_chat_recall_and_private_turn_with_provider_stub(owner, monkeypatc
         assert done["saved_memories"] == []
     facts = [memory.fact for memory in await Memory.find({"user_id": str(owner.id)}).to_list()]
     assert facts == ["My goal is to become a data scientist"]
+    stored = await Chat.get(chat.id)
+    assert [message.private for message in stored.messages if message.role == "user"] == [False, True]
+    snapshot = await capture_session(stored, str(owner.id))
+    assert "Private User" not in json.dumps(snapshot.quotes, default=str)
 
 
 async def test_refresh_token_and_inactive_account_cannot_read_ws_memory(owner):

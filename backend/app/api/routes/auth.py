@@ -4,6 +4,7 @@ from app.schemas.schemas import RegisterRequest, LoginRequest, GoogleAuthRequest
 from app.services import auth_service
 from app.middleware.auth_dep import get_current_user
 from app.models.user import User
+from app.core.config import settings
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -30,7 +31,7 @@ async def login(body: LoginRequest, response: Response):
         result = await auth_service.login_user(body.email, body.password)
         response.set_cookie(
             "refresh_token", result["refresh_token"],
-            httponly=True, samesite="lax", secure=False,
+            httponly=True, samesite="lax", secure=not settings.DEBUG,
             max_age=7 * 24 * 3600,
         )
         return {"access_token": result["access_token"], "token_type": "bearer", "user": result["user"]}
@@ -42,18 +43,19 @@ async def login(body: LoginRequest, response: Response):
 async def google_auth(body: GoogleAuthRequest, response: Response):
     try:
         result = await auth_service.google_login(body.credential)
-        response.set_cookie("refresh_token", result["refresh_token"], httponly=True, samesite="lax", secure=False, max_age=7*24*3600)
+        response.set_cookie("refresh_token", result["refresh_token"], httponly=True, samesite="lax", secure=not settings.DEBUG, max_age=7*24*3600)
         return {"access_token": result["access_token"], "token_type": "bearer", "user": result["user"]}
     except ValueError as e:
         raise HTTPException(status_code=401, detail=str(e))
 
 
 @router.post("/refresh")
-async def refresh(refresh_token: Optional[str] = Cookie(None)):
+async def refresh(response: Response, refresh_token: Optional[str] = Cookie(None)):
     if not refresh_token:
         raise HTTPException(status_code=401, detail="No refresh token")
     try:
         result = await auth_service.refresh_tokens(refresh_token)
+        response.set_cookie("refresh_token", result["refresh_token"], httponly=True, samesite="lax", secure=not settings.DEBUG, max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS*86400)
         return {"access_token": result["access_token"], "token_type": "bearer"}
     except ValueError as e:
         raise HTTPException(status_code=401, detail=str(e))

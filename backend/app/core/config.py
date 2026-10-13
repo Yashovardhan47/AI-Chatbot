@@ -15,6 +15,17 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379"
 
     ANTHROPIC_API_KEY: str = ""
+    AI_PROVIDER: str = "auto"
+    OLLAMA_URL: str = "http://localhost:11434"
+    OLLAMA_CHAT_MODEL: str = "llama3.2"
+    EMBEDDINGS_PROVIDER: str = "none"
+    EMBEDDINGS_MODEL: str = "embeddinggemma"
+    EMBEDDINGS_MIN_SIMILARITY: float = 0.45
+    MAX_UPLOAD_BYTES: int = 5_000_000
+    MAX_KNOWLEDGE_CHARS: int = 100_000
+    MAX_DOCUMENTS_PER_USER: int = 100
+    WORKSPACE_CONTEXT_CHARS: int = 12000
+    REMINDER_POLL_SECONDS: int = 30
     # Rule extraction is free/offline. The optional extractor makes one extra
     # provider call for messages not handled by rules; quotes are validated.
     MEMORY_LLM_EXTRACTION: bool = False
@@ -35,6 +46,14 @@ class Settings(BaseSettings):
     MAIL_SSL_TLS: bool = False
 
     FRONTEND_URL: str = "http://localhost:5173"
+
+    def validate_runtime(self):
+        if not self.DEBUG and (len(self.SECRET_KEY) < 32 or self.SECRET_KEY.startswith("neurofusion_dev")):
+            raise ValueError("Set a private SECRET_KEY of at least 32 characters for production")
+        if self.AI_PROVIDER not in {"auto", "anthropic", "ollama"}:
+            raise ValueError("AI_PROVIDER must be auto, anthropic or ollama")
+        if self.EMBEDDINGS_PROVIDER not in {"none", "ollama"}:
+            raise ValueError("EMBEDDINGS_PROVIDER must be none or ollama")
 
     class Config:
         env_file = ".env"

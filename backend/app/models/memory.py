@@ -59,6 +59,9 @@ class Memory(Document):
     # BSON datetimes have millisecond precision; retain microsecond ordering
     # separately so two fast turns cannot complete out of order.
     observed_us: int = 0
+    embedding: List[float] = Field(default_factory=list)
+    embedding_model: str = ""
+    embedding_fingerprint: str = ""
     expires_at: Optional[datetime] = None
 
     class Settings:

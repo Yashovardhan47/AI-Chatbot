@@ -45,6 +45,10 @@ class UpdatePreferencesRequest(BaseModel):
     language:    Optional[str]  = None
     memory_enabled: Optional[bool] = None
     memory_auto_capture: Optional[bool] = None
+    session_memory_enabled: Optional[bool] = None
+    knowledge_enabled: Optional[bool] = None
+    reminder_emails: Optional[bool] = None
+    timezone: Optional[str] = None
 
 
 # Chat

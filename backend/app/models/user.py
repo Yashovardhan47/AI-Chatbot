@@ -24,6 +24,10 @@ class Preferences(BaseModel):
     language:    str  = "en"
     memory_enabled: bool = True
     memory_auto_capture: bool = True
+    session_memory_enabled: bool = False
+    knowledge_enabled: bool = True
+    reminder_emails: bool = False
+    timezone: str = "Asia/Kolkata"
 
 
 class Stats(BaseModel):
@@ -43,6 +47,7 @@ class User(Document):
     role:          Role               = Role.user
     is_verified:   bool               = False
     is_active:     bool               = True
+    auth_version: int = 0
     verify_token:  Optional[str]      = None
     reset_token:   Optional[str]      = None
     reset_expires: Optional[datetime] = None
@@ -56,6 +61,6 @@ class User(Document):
         name = "users"
 
     def safe_dict(self) -> dict:
-        d = self.model_dump(exclude={"password", "verify_token", "reset_token"})
+        d = self.model_dump(exclude={"password", "verify_token", "reset_token", "reset_expires", "auth_version", "revision_id"})
         d["id"] = str(self.id)
         return d
