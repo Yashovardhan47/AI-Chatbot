@@ -46,6 +46,14 @@ provider subjects cannot take over a linked account. Frontend checks verify the
 official Google callback, absent/unreachable service states, proposal decisions
 and safe backend URL selection.
 
+## v6 remote validation
+
+[GitHub Actions run 38513868543](https://github.com/Yashovardhan47/AI-Chatbot/actions/runs/38513868543)
+passed for code commit `9713302352dafc6671775823ba830422a42ad5a4`: all 76 backend
+tests against real MongoDB, all 21 frontend tests, the production build and Compose
+configuration validation. Google credentials and model/mail services remain mocked
+in the tests; a live Google client and deployed API are not configured here.
+
 ## Earlier remote validation
 
 [GitHub Actions run 38347441922](https://github.com/Yashovardhan47/AI-Chatbot/actions/runs/38347441922)
@@ -61,8 +69,8 @@ Local backend tests use `mongomock-motor`. The fixture repairs a mock limitation
 that loses partial-index options; real MongoDB uses the declared model index.
 `NEUROSENSE_TEST_MONGO_URI` selects a real test server and creates/deletes a unique
 throwaway database. The supplied GitHub Actions workflow uses a MongoDB service,
-  checks the frontend and validates Compose configuration. The run above verifies
-  v5; v6 requires its own passing remote run.
+  checks the frontend and validates Compose configuration. The v6 run above verifies
+  these checks against the updated code.
 
 No live Anthropic, Ollama model, Google OAuth, SMTP or Cloudinary integration was
 executed. Protocol mocks validate the application contract, not provider uptime,
