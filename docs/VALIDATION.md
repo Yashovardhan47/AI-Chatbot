@@ -25,7 +25,7 @@ paid AI request or real reminder email was used.
   document import cannot restore data after the account session version changes.
 - Provider checks use HTTPX MockTransport for the Ollama streaming protocol and
   fake plan output for schema validation. Local live-web requests fail explicitly.
-- **21 frontend tests** pass using jsdom and Testing Library. They cover Memory
+- **22 frontend tests** pass using jsdom and Testing Library. They cover Memory
   Studio actions and evidence, WebSocket readiness and stale response handling,
   account cleanup, document-note/search interaction, explicit graph relationship
   payloads, task completion/version payloads, reminder read state and HTTP/HTTPS
