@@ -1,56 +1,33 @@
 import { useEffect, useRef, useState } from "react";
 import useAuthStore from "../context/authStore";
+import {authAPI} from "../services/api";
 import toast from "react-hot-toast";
 
-const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-
-/* Renders Google's official "Sign in with Google" button using the
-   Google Identity Services script loaded in index.html. Falls back to
-   a disabled hint if no client ID is configured. */
-export default function GoogleButton({ onSuccess }) {
-  const ref = useRef(null);
-  const googleLogin = useAuthStore(s => s.googleLogin);
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    if (!CLIENT_ID) return;
-
-    function init() {
-      if (!window.google?.accounts?.id || !ref.current) return;
-      window.google.accounts.id.initialize({
-        client_id: CLIENT_ID,
-        callback: async (response) => {
-          try {
-            await googleLogin(response.credential);
-            toast.success("Signed in with Google!");
-            onSuccess?.();
-          } catch (err) {
-            toast.error(err.response?.data?.detail || "Google sign-in failed");
-          }
-        },
-      });
-      window.google.accounts.id.renderButton(ref.current, {
-        theme: "filled_black", size: "large", width: 320, shape: "pill", text: "continue_with",
-      });
-      setReady(true);
-    }
-
-    if (window.google?.accounts?.id) init();
-    else {
-      const t = setInterval(() => {
-        if (window.google?.accounts?.id) { clearInterval(t); init(); }
-      }, 200);
-      return () => clearInterval(t);
-    }
-  }, []);
-
-  if (!CLIENT_ID) {
-    return (
-      <div className="w-full text-center text-[11px] text-gray-600 border border-dashed border-gray-800 rounded-xl py-2.5">
-        Google sign-in not configured — add VITE_GOOGLE_CLIENT_ID to frontend/.env
-      </div>
-    );
-  }
-
-  return <div ref={ref} className="flex justify-center w-full [&>div]:!w-full" />;
+let scriptPromise;
+export function loadGoogleIdentity(){
+  if(window.google?.accounts?.id)return Promise.resolve();
+  if(scriptPromise)return scriptPromise;
+  scriptPromise=new Promise((resolve,reject)=>{
+    let script=document.querySelector('script[data-neurosense-google]');
+    if(!script){script=document.createElement('script');script.src='https://accounts.google.com/gsi/client';script.async=true;script.defer=true;script.dataset.neurosenseGoogle='true';document.head.appendChild(script);}
+    script.addEventListener('load',()=>window.google?.accounts?.id?resolve():reject(new Error('Google identity did not load')),{once:true});
+    script.addEventListener('error',()=>reject(new Error('Google sign-in could not load')),{once:true});
+  }).catch(error=>{scriptPromise=undefined;document.querySelector('script[data-neurosense-google]')?.remove();throw error;});
+  return scriptPromise;
+}
+export default function GoogleButton({onSuccess}){
+  const ref=useRef(null);const googleLogin=useAuthStore(s=>s.googleLogin);
+  const [status,setStatus]=useState('loading'),[retry,setRetry]=useState(0);
+  useEffect(()=>{let active=true;setStatus('loading');async function setup(){try{
+    const {data}=await authAPI.config();if(!active)return;
+    if(data?.password_login!==true||typeof data.google_enabled!=='boolean')throw new Error('Invalid authentication configuration');
+    if(!data.google_enabled||!data.google_client_id){setStatus('unconfigured');return;}
+    await loadGoogleIdentity();if(!active||!ref.current)return;
+    window.google.accounts.id.initialize({client_id:data.google_client_id,callback:async response=>{
+      if(!active)return;try{await googleLogin(response.credential);toast.success('Signed in with Google');onSuccess?.();}
+      catch(err){toast.error(err.response?.data?.detail||'Google sign-in failed');}
+    }});
+    window.google.accounts.id.renderButton(ref.current,{theme:'outline',size:'large',width:360,shape:'rectangular',text:'continue_with'});setStatus('ready');
+  }catch{if(active)setStatus('unavailable');}}setup();return()=>{active=false;};},[retry]);
+  return <div className="ns-google-area"><div ref={ref} className="ns-google-button"/>{status==='loading'&&<p>Checking Google sign-in…</p>}{status==='unconfigured'&&<p>Google sign-in is not enabled for this server.</p>}{status==='unavailable'&&<p>Sign-in service unavailable. <button type="button" onClick={()=>setRetry(v=>v+1)}>Retry</button></p>}</div>;
 }

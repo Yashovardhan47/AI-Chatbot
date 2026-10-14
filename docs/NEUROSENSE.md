@@ -2,7 +2,7 @@
 
 ## Goal and repository analysis
 
-NeuroSense v5 expands the existing NeuroFusion FastAPI + MongoDB + React chatbot
+NeuroSense v6 expands the existing NeuroFusion FastAPI + MongoDB + React chatbot
 into a persistent personal AI workspace. It retains explicitly stated user facts,
 source documents, saved user-quote sessions and user-created commitments across
 sessions and server restarts. The remote branch is `chatbot-update`;
@@ -14,6 +14,26 @@ an assistant answer, compared exact strings for duplicates, and supplied the new
 50 records to every chat. Three recent raw chats were also injected into new
 sessions. Facts had no update history, project scope or retrieval explanation.
 Deletion merely marked records inactive. There were no backend memory tests.
+
+## v6 application experience
+
+The public overview, sign-in screens and authenticated workspace now share a
+NeuroSense identity and responsive navigation. A keyboard search palette finds
+owner-scoped chat, memory, knowledge and commitment records. Recent activity
+comes from actual stored records. A memory inbox lets users enable approval before
+structured chat facts enter recall; proposals retain exact sources and observation
+order. Deleted/private sources and outdated proposals cannot be approved.
+
+Google Identity Services uses the public web client ID returned by the FastAPI
+server, not a fake demo login. The backend validates provider tokens and issues
+project JWTs with rotating, hashed refresh sessions. Sign out everywhere advances
+the account session version, invalidating access and refresh tokens. Cross-site
+HTTPS frontends can select SameSite=None with DEBUG=false; same-origin/local
+setups use the default Lax cookie. Refresh cookies are HTTP-only and API-scoped.
+
+The hosted frontend can select and verify a real API base URL through Backend
+connection. It does not replace the Python/MongoDB server. A deployed HTTPS API
+URL and configured Google client ID are required for live hosted authentication.
 
 ## Implemented capabilities
 

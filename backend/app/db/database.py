@@ -7,14 +7,14 @@ from app.models.memory  import Memory
 from app.models.memory_state import MemoryState
 from app.models.project import Project
 from app.models.workspace import (KnowledgeDocument, MemoryEdge, MemoryFeedback, SessionDigest,
-                                  Commitment, Notification, AuthSession, TokenRevocation)
+                                  Commitment, Notification, AuthSession, TokenRevocation, MemoryProposal)
 import redis.asyncio as aioredis
 from app.core.logger import logger
 
 _redis_client = None
 _mongo_client = None
 DOCUMENT_MODELS = [User, Chat, Memory, MemoryState, Project, KnowledgeDocument, MemoryEdge,
-                   MemoryFeedback, SessionDigest, Commitment, Notification, AuthSession, TokenRevocation]
+                   MemoryFeedback, SessionDigest, Commitment, Notification, AuthSession, TokenRevocation, MemoryProposal]
 
 
 async def connect_db():

@@ -9,7 +9,7 @@ from app.middleware.auth_dep import get_current_user
 from app.models.user import User
 from app.models.project import Project
 from app.models.memory import Memory, MemoryCategory, MemoryKind
-from app.models.workspace import MemoryEdge, MemoryFeedback, SessionDigest
+from app.models.workspace import MemoryEdge, MemoryFeedback, SessionDigest, MemoryProposal
 from app.core.config import settings
 from app.services.embeddings import encode_texts
 from app.services.memory_logic import Candidate, fingerprint, safe_fact, tokens, utc_naive, observation_order
@@ -118,7 +118,7 @@ async def clear_memories(current_user: User = Depends(get_current_user)):
     # Hard deletion includes all revisions and any old inactive records.
     async with memory_write_guard(str(current_user.id)):
         await Memory.find({"user_id": str(current_user.id)}).delete()
-        for model in (MemoryEdge, MemoryFeedback, SessionDigest):
+        for model in (MemoryEdge, MemoryFeedback, SessionDigest, MemoryProposal):
             await model.find({"user_id": str(current_user.id)}).delete()
         await invalidate_captures(str(current_user.id))
     return {"message": "All memory facts and revisions deleted. Chat transcripts are separate."}
@@ -174,6 +174,7 @@ async def delete_memory(memory_id: str, current_user: User = Depends(get_current
     async with memory_write_guard(str(current_user.id)):
         memory = await owned_memory(memory_id, str(current_user.id))
         await memory.delete()
+        await MemoryProposal.find({"user_id": str(current_user.id), "project_id": memory.project_id, "candidate.slot": memory.slot, "status": "pending"}).delete()
         await MemoryEdge.find({"user_id": str(current_user.id), "$or": [{"source_id": memory_id}, {"target_id": memory_id}]}).delete()
         await invalidate_captures(str(current_user.id))
     return {"message": "Memory and all its revisions deleted. Chat transcripts are separate."}

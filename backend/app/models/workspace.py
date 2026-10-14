@@ -123,3 +123,21 @@ class TokenRevocation(Document):
     class Settings:
         name = "token_revocations"
         indexes = [IndexModel([("expires_at", 1)], expireAfterSeconds=0)]
+
+
+class MemoryProposal(Document):
+    user_id: Indexed(str)
+    project_id: Optional[str] = None
+    chat_id: str
+    message_id: str
+    candidate: dict
+    observed_at: datetime
+    observed_us: int = 0
+    epoch: int
+    status: str = "pending"
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    resolved_at: Optional[datetime] = None
+    class Settings:
+        name = "memory_proposals"
+        indexes = [IndexModel([("user_id", 1), ("message_id", 1), ("candidate.slot", 1)], unique=True),
+                   IndexModel([("user_id", 1), ("status", 1), ("created_at", -1)])]

@@ -1,3 +1,4 @@
+import { useAppFrame } from "../context/frameContext";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Menu, Globe, Brain, Mic, MicOff, Paperclip, Send, Sparkles, Square, Shield } from "lucide-react";
@@ -21,6 +22,7 @@ const MODES = [
 ];
 
 export default function ChatPage() {
+  const frame = useAppFrame();
   const { id } = useParams();
   const navigate = useNavigate();
   const { chats, activeChat, messages, memories, memoryTotal, streaming, streamBuffer, fetchChats, fetchHistory, openChat, newChat, sendMessage, fetchMemories, uploadFiles, getTodayChat } = useChatStore();
@@ -91,7 +93,7 @@ export default function ChatPage() {
       const uploaded = await uploadFiles(picked);
       setFiles(prev => [...prev, ...uploaded]);
       toast.success(`${uploaded.length} file(s) ready`);
-    } catch { toast.error("Upload failed — check Cloudinary config in .env"); }
+    } catch { toast.error("Upload unavailable. You can import readable documents in Knowledge."); }
     finally { setUploading(false); }
   }
 
@@ -112,13 +114,13 @@ export default function ChatPage() {
 
   return (
     <div className="flex h-screen bg-gray-950 text-white overflow-hidden relative">
-      <LivingBackground mode={mode} />
-      <Sidebar open={sidebarOpen} onClose={() => setSidebar(false)} selectedModel={selectedModel} onModelChange={setModel}
-        onNewChat={async () => { const chat = await newChat(); navigate(`/chat/${chat.id}`); }} />
+
+      {!frame && <Sidebar open={sidebarOpen} onClose={() => setSidebar(false)} selectedModel={selectedModel} onModelChange={setModel}
+        onNewChat={async () => { const chat = await newChat(); navigate(`/chat/${chat.id}`); }} />}
 
       <div className="flex-1 flex flex-col overflow-hidden min-w-0 relative z-10">
         <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-800/60 flex-shrink-0 bg-gray-950/70 backdrop-blur">
-          <button onClick={() => setSidebar(o => !o)} className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-gray-800 transition-colors flex-shrink-0"><Menu size={16} /></button>
+          <button onClick={() => frame ? frame.toggleNav() : setSidebar(o => !o)} className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-gray-800 transition-colors flex-shrink-0"><Menu size={16} /></button>
           {activeChat && <span className="text-xs text-gray-500 truncate hidden sm:block max-w-[180px]">{activeChat.title}</span>}
           <div className="flex gap-1 overflow-x-auto flex-1 scrollbar-none">
             {MODES.map(m => (
@@ -154,7 +156,7 @@ export default function ChatPage() {
               <p className="text-gray-500 text-sm max-w-sm mb-2">Using <span style={{ color: currentMode.color }} className="font-medium">{modelInfo.name}</span></p>
               {memoryTotal > 0 && <p className="text-xs text-violet-400/70 mb-6">{memoryTotal} stored facts across your sessions and projects</p>}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-md w-full mt-2">
-                {["Explain Python async/await with examples","Debug my FastAPI authentication code","What are the latest AI trends?","Help me write a research paper intro","Build a REST API in Python","Analyze this concept and give me sources"].map(p => (
+                {["Explain Python async/await with examples","Recall what we decided earlier code","What are the latest AI trends?","Help me write a research paper intro","Build a REST API in Python","Analyze this concept and give me sources"].map(p => (
                   <button key={p} onClick={() => { setInput(p); inputRef.current?.focus(); }} className="text-left text-xs bg-gray-900/60 backdrop-blur hover:bg-gray-800/60 border border-gray-800 hover:border-gray-700 rounded-xl p-3 text-gray-400 hover:text-gray-200 transition-all">{p}</button>
                 ))}
               </div>
@@ -188,7 +190,7 @@ export default function ChatPage() {
             <input ref={fileRef} type="file" multiple className="hidden" accept="image/*,application/pdf,text/*,.csv,.json,.js,.py,.java,.ts,.html,.css,.md,audio/*,video/*" onChange={onFilePick} />
             <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-              placeholder="Message NeuroFusion AI… (Enter to send, Shift+Enter for new line)" rows={1}
+              placeholder="Message NeuroSense… (Enter to send, Shift+Enter for new line)" rows={1}
               className="flex-1 bg-transparent outline-none text-sm text-white placeholder-gray-600 resize-none max-h-36 leading-relaxed"
               onInput={e => { e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 144) + "px"; }} />
             <button onClick={toggleVoice} className={`p-1.5 rounded-xl transition-colors flex-shrink-0 ${recording ? "bg-red-500/20 text-red-400 animate-pulse" : "text-gray-600 hover:text-gray-400 hover:bg-gray-800"}`}>{recording ? <MicOff size={15} /> : <Mic size={15} />}</button>

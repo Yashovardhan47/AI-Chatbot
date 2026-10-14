@@ -9,6 +9,19 @@ from app.core.config import settings
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
+def set_refresh_cookie(response, token):
+    response.set_cookie("refresh_token", token, httponly=True, secure=not settings.DEBUG,
+        samesite=settings.REFRESH_COOKIE_SAMESITE, path="/api/auth",
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400)
+
+
+@router.get("/config")
+async def auth_configuration():
+    return {"google_client_id": settings.GOOGLE_CLIENT_ID or None,
+            "google_enabled": bool(settings.GOOGLE_CLIENT_ID), "password_login": True,
+            "email_verification": not (settings.DEBUG and not settings.MAIL_USERNAME)}
+
+
 @router.post("/register", status_code=201)
 async def register(body: RegisterRequest):
     try:
@@ -29,11 +42,7 @@ async def verify_email(token: str):
 async def login(body: LoginRequest, response: Response):
     try:
         result = await auth_service.login_user(body.email, body.password)
-        response.set_cookie(
-            "refresh_token", result["refresh_token"],
-            httponly=True, samesite="lax", secure=not settings.DEBUG,
-            max_age=7 * 24 * 3600,
-        )
+        set_refresh_cookie(response, result["refresh_token"])
         return {"access_token": result["access_token"], "token_type": "bearer", "user": result["user"]}
     except ValueError as e:
         raise HTTPException(status_code=401, detail=str(e))
@@ -43,7 +52,7 @@ async def login(body: LoginRequest, response: Response):
 async def google_auth(body: GoogleAuthRequest, response: Response):
     try:
         result = await auth_service.google_login(body.credential)
-        response.set_cookie("refresh_token", result["refresh_token"], httponly=True, samesite="lax", secure=not settings.DEBUG, max_age=7*24*3600)
+        set_refresh_cookie(response, result["refresh_token"])
         return {"access_token": result["access_token"], "token_type": "bearer", "user": result["user"]}
     except ValueError as e:
         raise HTTPException(status_code=401, detail=str(e))
@@ -55,7 +64,7 @@ async def refresh(response: Response, refresh_token: Optional[str] = Cookie(None
         raise HTTPException(status_code=401, detail="No refresh token")
     try:
         result = await auth_service.refresh_tokens(refresh_token)
-        response.set_cookie("refresh_token", result["refresh_token"], httponly=True, samesite="lax", secure=not settings.DEBUG, max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS*86400)
+        set_refresh_cookie(response, result["refresh_token"])
         return {"access_token": result["access_token"], "token_type": "bearer"}
     except ValueError as e:
         raise HTTPException(status_code=401, detail=str(e))
@@ -65,7 +74,7 @@ async def refresh(response: Response, refresh_token: Optional[str] = Cookie(None
 async def logout(response: Response, request: Request, current_user: User = Depends(get_current_user), refresh_token: Optional[str] = Cookie(None)):
     token = request.headers.get("Authorization", "").replace("Bearer ", "")
     await auth_service.logout_user(refresh_token or "", token)
-    response.delete_cookie("refresh_token")
+    response.delete_cookie("refresh_token", path="/api/auth")
     return {"message": "Logged out"}
 
 

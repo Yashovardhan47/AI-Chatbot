@@ -24,6 +24,7 @@ class Preferences(BaseModel):
     language:    str  = "en"
     memory_enabled: bool = True
     memory_auto_capture: bool = True
+    memory_review_required: bool = False
     session_memory_enabled: bool = False
     knowledge_enabled: bool = True
     reminder_emails: bool = False

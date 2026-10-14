@@ -77,3 +77,31 @@ a guarantee against duplicates after an ambiguous mail-server timeout.
 Scanned PDFs need external OCR. Video/audio understanding, autonomous OS actions
 and model fine-tuning are outside this release. Multilingual retrieval depends
 on the configured embedding model; extraction rules remain conservative.
+
+## v6 real authentication and hosted frontend
+
+The new NeuroSense interface has a public overview and a distinct authenticated
+workspace. Memory Inbox, global search, recent activity and security controls use
+the Python backend. There is no sample-data authentication bypass.
+
+To use a separately hosted frontend, deploy the FastAPI API with MongoDB, set
+FRONTEND_URL to the exact frontend origin, use DEBUG=false and private SECRET_KEY,
+and set REFRESH_COOKIE_SAMESITE=none for cross-site HTTPS cookies. Some browsers
+restrict third-party cookies; serving the frontend/API through one HTTPS origin
+is the preferred production topology. Use Backend connection on the sign-in page
+to provide the actual HTTPS API base URL ending in /api. The interface validates
+/api/auth/config before selecting it.
+
+For Google sign-in, create a Google OAuth web client for your own project and set
+GOOGLE_CLIENT_ID on the backend. Add your frontend's exact origin to that client's
+authorized JavaScript origins. The frontend obtains the public client ID from
+/api/auth/config and uses Google's official Identity Services button; it never
+asks for a client secret. The full flow cannot be verified live without that
+client and an operational server. JWT registration/login, refresh rotation, logout,
+all-session revocation and the Google-to-project-JWT route have automated checks;
+provider identities are mocked in the Google checks.
+
+Enable Review captured facts before saving in Memory Inbox or Settings. Captured
+facts remain proposals until explicitly approved, and never replace a newer fact
+when approved late. Manual memory additions are explicit saves. Session snapshots
+remain a separate opt-in historical-quote feature.

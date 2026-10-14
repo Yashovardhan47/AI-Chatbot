@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Settings, Lock, Palette, Globe, Volume2, Save } from "lucide-react";
 import toast from "react-hot-toast";
+import ConnectionSettings from "../components/ConnectionSettings";
 import useAuthStore from "../context/authStore";
-import { userAPI, accountAPI, saveDownload } from "../services/api";
+import { userAPI, accountAPI, workspaceAPI, saveDownload } from "../services/api";
 
 export default function SettingsPage() {
   const navigate = useNavigate();
@@ -13,6 +14,9 @@ export default function SettingsPage() {
   const [webSearch, setWebSearch] = useState(user?.preferences?.web_search || false);
   const [ttsEnabled, setTtsEnabled] = useState(user?.preferences?.tts_enabled || false);
   const [memoryEnabled, setMemoryEnabled] = useState(user?.preferences?.memory_enabled ?? true);
+  const [reviewRequired, setReviewRequired] = useState(user?.preferences?.memory_review_required ?? false);
+  const [security, setSecurity] = useState(null);
+  useEffect(() => { Promise.all([workspaceAPI.sessions(), workspaceAPI.system()]).then(([s, r]) => setSecurity({ sessions: s.data.sessions, system: r.data })).catch(() => {}); }, []);
   const [autoCapture, setAutoCapture] = useState(user?.preferences?.memory_auto_capture ?? true);
   const [sessionMemory, setSessionMemory] = useState(user?.preferences?.session_memory_enabled ?? false);
   const [knowledgeEnabled, setKnowledgeEnabled] = useState(user?.preferences?.knowledge_enabled ?? true);
@@ -30,7 +34,7 @@ export default function SettingsPage() {
     setSavingPrefs(true);
     try {
       const { data } = await userAPI.updatePrefs({ mode, web_search: webSearch, tts_enabled: ttsEnabled,
-        memory_enabled: memoryEnabled, memory_auto_capture: autoCapture, session_memory_enabled: sessionMemory,
+        memory_enabled: memoryEnabled, memory_auto_capture: autoCapture, memory_review_required: reviewRequired, session_memory_enabled: sessionMemory,
         knowledge_enabled: knowledgeEnabled, reminder_emails: reminderEmails, timezone });
       useAuthStore.getState().updateUser({ preferences: data.preferences });
       toast.success("Preferences saved");
@@ -91,6 +95,7 @@ export default function SettingsPage() {
             <label className="flex justify-between text-sm text-gray-300">NeuroSense memory enabled<input type="checkbox" checked={memoryEnabled} onChange={e => setMemoryEnabled(e.target.checked)} className="accent-violet-500" /></label>
             <label className="flex justify-between text-sm text-gray-300">Capture stated facts automatically<input type="checkbox" checked={autoCapture} onChange={e => setAutoCapture(e.target.checked)} className="accent-violet-500" /></label>
             <p className="text-xs text-gray-500">When automatic capture is off, use “Remember…” or add facts in Memory Studio.</p>
+            <label className="flex justify-between text-sm text-gray-300">Review captured facts before saving<input type="checkbox" checked={reviewRequired} onChange={e => setReviewRequired(e.target.checked)} className="accent-violet-500" /></label>
             <label className="flex justify-between text-sm text-gray-300">Save session snapshots automatically<input type="checkbox" checked={sessionMemory} onChange={e => setSessionMemory(e.target.checked)} className="accent-violet-500" /></label>
             <label className="flex justify-between text-sm text-gray-300">Use knowledge library in chat<input type="checkbox" checked={knowledgeEnabled} onChange={e => setKnowledgeEnabled(e.target.checked)} className="accent-violet-500" /></label>
             <label className="flex justify-between text-sm text-gray-300">Email due reminders<input type="checkbox" checked={reminderEmails} onChange={e => setReminderEmails(e.target.checked)} className="accent-violet-500" /></label>
@@ -103,6 +108,7 @@ export default function SettingsPage() {
           </button>
         </div>
 
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 mb-4"><h2 className="text-sm font-semibold mb-4">Account security & services</h2><p className="text-xs text-gray-400 mb-3">{security ? `${security.sessions.length} active refresh sessions · Google ${security.system.google_enabled ? 'enabled' : 'not configured'} · AI provider ${security.system.provider.provider}` : 'Loading account session status…'}</p><p className="text-xs text-gray-500 mb-4">Sign out everywhere to invalidate existing JWT access tokens and refresh sessions. Configuration status does not guarantee provider availability.</p><div className="flex flex-wrap gap-4 items-center"><button className="text-xs text-red-300" onClick={async () => { if (!confirm('Sign out all devices and this session?')) return; try { await workspaceAPI.revokeAll(); await useAuthStore.getState().logout(); navigate('/login'); } catch { toast.error('Unable to revoke sessions'); } }}>Sign out all sessions</button><ConnectionSettings compact/></div></div>
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 mb-4">
           <h2 className="text-sm font-semibold mb-3">Your data</h2><p className="text-xs text-gray-500 mb-4">Export your profile, chats, knowledge, memories and commitments as a portable JSON file.</p>
           <button disabled={dataBusy} onClick={async () => { setDataBusy(true); try { const { data } = await accountAPI.export(); saveDownload(data, "neurosense-account.json"); } catch { toast.error("Unable to export data"); } finally { setDataBusy(false); } }} className="text-sm bg-gray-800 px-4 py-2 rounded-xl">Export my workspace</button>

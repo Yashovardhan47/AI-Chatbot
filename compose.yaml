@@ -19,6 +19,7 @@ services:
     build: ./backend
     environment: &backend_env
       DEBUG: ${DEBUG:-true}
+      REFRESH_COOKIE_SAMESITE: ${REFRESH_COOKIE_SAMESITE:-lax}
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
       MONGO_URI: mongodb://${MONGO_USER:-neurosense}:${MONGO_PASSWORD}@mongo:27017/neurofusion?authSource=admin
       DB_NAME: neurofusion

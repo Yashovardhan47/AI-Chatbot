@@ -51,6 +51,8 @@ async def list_documents(offset: int = Query(0, ge=0), limit: int = Query(30, ge
 
 @router.post("/notes", status_code=201)
 async def create_note(body: NoteInput, user: User = Depends(get_current_user)):
+    if len(body.title.strip()) < 2:
+        raise HTTPException(422, "Enter a descriptive note title")
     await owned_project(body.project_id, str(user.id))
     try:
         document, created = await store_document(str(user.id), body.title, [(None, body.text)], body.text.encode(),

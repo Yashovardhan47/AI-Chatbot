@@ -1,11 +1,11 @@
-# NeuroSense v5 validation
+# NeuroSense v6 validation
 
-Validation date: 2026-10-13. All inputs are synthetic. No live user database,
+Validation date: 2026-10-14. All inputs are synthetic. No live user database,
 paid AI request or real reminder email was used.
 
 ## Completed local checks
 
-- **65 backend tests** pass locally. Existing coverage exercises grounded extraction,
+- **76 backend tests** pass locally. Existing coverage exercises grounded extraction,
   archive recall, slot revisions/current/history/as-of semantics, character budgets,
   user/project boundaries, expiry, pins, pagination, legacy confirmation, deletion,
   privacy enforcement and cancellation of delayed captures through API/WebSocket paths.
@@ -25,7 +25,7 @@ paid AI request or real reminder email was used.
   document import cannot restore data after the account session version changes.
 - Provider checks use HTTPX MockTransport for the Ollama streaming protocol and
   fake plan output for schema validation. Local live-web requests fail explicitly.
-- **14 frontend tests** pass using jsdom and Testing Library. They cover Memory
+- **21 frontend tests** pass using jsdom and Testing Library. They cover Memory
   Studio actions and evidence, WebSocket readiness and stale response handling,
   account cleanup, document-note/search interaction, explicit graph relationship
   payloads, task completion/version payloads, reminder read state and HTTP/HTTPS
@@ -35,7 +35,18 @@ paid AI request or real reminder email was used.
   harness runs on 166 records and 8 cases; it is a regression demonstration, not
   an external benchmark or a measurement of model answer accuracy.
 
-## Remote validation
+## Additional v6 checks
+
+Approval/rejection, owner boundaries, deleted/private source rejection, stale
+proposal handling and microsecond ordering are tested through the API. Literal
+global search respects owner and project boundaries. All-session revocation
+invalidates access and refresh tokens. Public Google configuration excludes server
+secrets, cookies are API-scoped, the Google route issues a project JWT, and changed
+provider subjects cannot take over a linked account. Frontend checks verify the
+official Google callback, absent/unreachable service states, proposal decisions
+and safe backend URL selection.
+
+## Earlier remote validation
 
 [GitHub Actions run 38347441922](https://github.com/Yashovardhan47/AI-Chatbot/actions/runs/38347441922)
 passed for code commit `b14a7ed6b49800c7d2451e29132122a6e9d49016`:
@@ -50,8 +61,8 @@ Local backend tests use `mongomock-motor`. The fixture repairs a mock limitation
 that loses partial-index options; real MongoDB uses the declared model index.
 `NEUROSENSE_TEST_MONGO_URI` selects a real test server and creates/deletes a unique
 throwaway database. The supplied GitHub Actions workflow uses a MongoDB service,
-  checks the frontend and validates Compose configuration; the completed run above
-  verifies these checks with the corrected concurrency expectations.
+  checks the frontend and validates Compose configuration. The run above verifies
+  v5; v6 requires its own passing remote run.
 
 No live Anthropic, Ollama model, Google OAuth, SMTP or Cloudinary integration was
 executed. Protocol mocks validate the application contract, not provider uptime,

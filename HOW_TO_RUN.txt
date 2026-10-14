@@ -1,4 +1,4 @@
-NeuroSense AI Workspace v5 — Quick Start
+NeuroSense AI Workspace v6 — Quick Start
 ========================================
 
 Full setup: docs/RUN_WORKSPACE.md
@@ -67,3 +67,7 @@ App routes:
   /agents               Specialist, debate and plan workflows
   /settings             Preferences, workspace export/erasure and password
   /profile              Profile information
+
+V6: Memory Inbox, global workspace search (Ctrl/Cmd K), activity, themes and
+real Google/JWT account controls. See docs/RUN_WORKSPACE.md for live hosted
+frontend connection, Google OAuth and cross-site HTTPS cookie configuration.

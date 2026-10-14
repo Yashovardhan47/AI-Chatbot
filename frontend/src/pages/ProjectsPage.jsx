@@ -1,3 +1,4 @@
+import { useAppFrame } from "../context/frameContext";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FolderKanban, Plus, Search, Trash2, Edit3, Calendar, MoreHorizontal, ArrowRight, X, Check, Menu } from "lucide-react";
@@ -87,6 +88,7 @@ function CreateProjectModal({ onClose, onSave, editProject }) {
 }
 
 export default function ProjectsPage() {
+  const frame = useAppFrame();
   const navigate = useNavigate();
   const { projects, fetchProjects, createProject, deleteProject, updateProject } = useProjectStore();
   const { fetchChats, newChat } = useChatStore();
@@ -114,10 +116,10 @@ export default function ProjectsPage() {
 
   return (
     <div className="flex h-screen bg-gray-950 text-white overflow-hidden">
-      <Sidebar open={sidebarOpen} onClose={() => setSidebar(false)} selectedModel={selectedModel} onModelChange={setModel} onNewChat={async () => { const c = await newChat(); navigate(`/chat/${c.id}`); }} />
+      {!frame && <Sidebar open={sidebarOpen} onClose={() => setSidebar(false)} selectedModel={selectedModel} onModelChange={setModel} onNewChat={async () => { const c = await newChat(); navigate(`/chat/${c.id}`); }} />}
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-800 flex-shrink-0">
-          <button onClick={() => setSidebar(o => !o)} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"><Menu size={17} /></button>
+          <button onClick={() => frame ? frame.toggleNav() : setSidebar(o => !o)} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"><Menu size={17} /></button>
           <div className="flex items-center gap-2 flex-1"><FolderKanban size={18} className="text-violet-400" /><h1 className="font-semibold text-sm">Projects</h1></div>
           <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-xs font-medium px-3 py-2 rounded-xl transition-colors"><Plus size={13} /> New project</button>
         </div>

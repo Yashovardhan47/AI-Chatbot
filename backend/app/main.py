@@ -16,6 +16,7 @@ from app.api.routes.knowledge import router as knowledge_router
 from app.api.routes.graph import router as graph_router
 from app.api.routes.continuity import router as continuity_router
 from app.api.routes.account import router as account_router
+from app.api.routes.workspace import router as workspace_router
 
 
 @asynccontextmanager
@@ -34,7 +35,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="NeuroSense AI Workspace", version="5.0.0",
+    title="NeuroSense AI Workspace", version="6.0.0",
     description="Personal AI assistant with grounded, versioned long-term NeuroSense memory",
     lifespan=lifespan, docs_url="/api/docs", redoc_url="/api/redoc",
 )
@@ -57,8 +58,9 @@ app.include_router(knowledge_router)
 app.include_router(graph_router)
 app.include_router(continuity_router)
 app.include_router(account_router)
+app.include_router(workspace_router)
 
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "app": settings.APP_NAME, "version": "5.0.0", "memory": "NeuroSense"}
+    return {"status": "ok", "app": settings.APP_NAME, "version": "6.0.0", "memory": "NeuroSense"}

@@ -2,6 +2,7 @@ import { useEffect, Suspense, lazy } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import useAuthStore from "./context/authStore";
+import AppShell from "./components/AppShell";
 
 // Eager: needed immediately on first load
 import LandingPage from "./pages/LandingPage";
@@ -24,6 +25,7 @@ const MemoryPage     = lazy(() => import("./pages/MemoryPage"));
 const KnowledgePage  = lazy(() => import("./pages/KnowledgePage"));
 const ContinuityPage = lazy(() => import("./pages/ContinuityPage"));
 const GraphPage      = lazy(() => import("./pages/GraphPage"));
+const ReviewPage = lazy(() => import("./pages/ReviewPage"));
 
 // Instant, lightweight fallback — shown for the few ms a lazy chunk takes
 // to load, so switching pages never *looks* frozen.
@@ -38,7 +40,7 @@ function RouteLoader() {
 function PrivateRoute({ children }) {
   const { user, loading } = useAuthStore();
   if (loading) return <RouteLoader />;
-  return user ? children : <Navigate to="/welcome" replace />;
+  return user ? <AppShell>{children}</AppShell> : <Navigate to="/welcome" replace />;
 }
 
 function GuestRoute({ children }) {
@@ -84,6 +86,7 @@ export default function App() {
           <Route path="/memory"       element={<PrivateRoute><MemoryPage /></PrivateRoute>} />
           <Route path="/knowledge"    element={<PrivateRoute><KnowledgePage /></PrivateRoute>} />
           <Route path="/continuity"   element={<PrivateRoute><ContinuityPage /></PrivateRoute>} />
+          <Route path="/review" element={<PrivateRoute><ReviewPage /></PrivateRoute>} />
           <Route path="/memory-graph" element={<PrivateRoute><GraphPage /></PrivateRoute>} />
 
           <Route path="*" element={<Navigate to="/" replace />} />

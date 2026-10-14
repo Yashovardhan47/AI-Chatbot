@@ -1,8 +1,10 @@
 import axios from "axios";
+import { apiBase } from "./runtime";
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:8000/api",
+  baseURL: apiBase(),
   withCredentials: true,
+  timeout: 20000,
 });
 
 api.interceptors.request.use(cfg => {
@@ -41,6 +43,7 @@ api.interceptors.response.use(res => res, async err => {
 });
 
 export const authAPI = {
+  config: () => api.get("/auth/config", { timeout: 5000 }),
   register: d => api.post("/auth/register", d),
   login:    d => api.post("/auth/login", d),
   googleAuth: d => api.post("/auth/google", d),
@@ -106,6 +109,13 @@ export const continuityAPI = {
 };
 export const accountAPI = { export: () => api.get("/account/export", { responseType: "blob" }),
   erase: confirmation => api.delete("/account/data", { data: { confirmation } }) };
+export const workspaceAPI = {
+  search: (params, signal) => api.get("/workspace/search", { params, signal }),
+  activity: () => api.get("/workspace/activity"), system: () => api.get("/workspace/system"),
+  review: params => api.get("/workspace/review", { params }),
+  resolve: (id, action) => api.post(`/workspace/review/${id}`, { action }),
+  sessions: () => api.get("/workspace/sessions"), revokeAll: () => api.post("/workspace/sessions/revoke-all"),
+};
 export function saveDownload(blob, filename) {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a"); anchor.href = url; anchor.download = filename;
@@ -114,7 +124,7 @@ export function saveDownload(blob, filename) {
 }
 
 export function createChatSocket(chatId, token, { onDelta, onDone, onChatCreated, onError, onClose }) {
-  const parsed = new URL(import.meta.env.VITE_API_URL || "http://localhost:8000/api", window.location.origin);
+  const parsed = new URL(apiBase(), window.location.origin);
   parsed.protocol = parsed.protocol === "https:" ? "wss:" : "ws:";
   const base = parsed.href.replace(/\/$/, "");
   const ws = new WebSocket(`${base}/chat/ws/${chatId}?token=${token}`);

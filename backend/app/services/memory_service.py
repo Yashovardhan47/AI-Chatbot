@@ -11,6 +11,7 @@ from app.core.config import settings
 from app.core.logger import logger
 from app.models.memory import Memory
 from app.models.user import User
+from app.models.workspace import MemoryProposal
 from app.services.memory_guard import memory_epoch, memory_write_guard, invalidate_captures
 from app.services.embeddings import hybrid_rank
 from app.services.graph_service import augment_graph, apply_feedback
@@ -149,6 +150,13 @@ async def capture_turn(user_id: str, text: str, chat_id: str, message_id: str,
             return []
         for candidate in candidates:
             if not (auto_capture and user.preferences.memory_auto_capture) and not candidate.explicit:
+                continue
+            if user.preferences.memory_review_required:
+                key = {"user_id": user_id, "message_id": message_id, "candidate.slot": candidate.slot}
+                if not await MemoryProposal.find_one(key):
+                    await MemoryProposal(user_id=user_id, project_id=project_id, chat_id=chat_id,
+                        message_id=message_id, candidate=candidate.model_dump(mode="json"),
+                        observed_at=observed_at, observed_us=observation_order(observed_at), epoch=epoch).insert()
                 continue
             memory, action = await _write_memory(user_id, candidate, project_id, chat_id, message_id,
                                                  "rules" if candidate.confidence >= 95 else "extractor", observed_at=observed_at)

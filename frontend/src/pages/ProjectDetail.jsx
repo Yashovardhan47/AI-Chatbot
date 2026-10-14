@@ -1,3 +1,4 @@
+import { useAppFrame } from "../context/frameContext";
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, MessageSquare, Trash2, Menu } from "lucide-react";
@@ -7,6 +8,7 @@ import useChatStore from "../context/chatStore";
 import useProjectStore from "../context/projectStore";
 
 export default function ProjectDetail() {
+  const frame = useAppFrame();
   const { id } = useParams();
   const navigate = useNavigate();
   const { projects, fetchProjects } = useProjectStore();
@@ -36,10 +38,10 @@ export default function ProjectDetail() {
 
   return (
     <div className="flex h-screen bg-gray-950 text-white overflow-hidden">
-      <Sidebar open={sidebarOpen} onClose={() => setSidebar(false)} selectedModel={selectedModel} onModelChange={setModel} onNewChat={startNewChat} />
+      {!frame && <Sidebar open={sidebarOpen} onClose={() => setSidebar(false)} selectedModel={selectedModel} onModelChange={setModel} onNewChat={startNewChat} />}
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-800 flex-shrink-0">
-          <button onClick={() => setSidebar(o => !o)} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"><Menu size={17} /></button>
+          <button onClick={() => frame ? frame.toggleNav() : setSidebar(o => !o)} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"><Menu size={17} /></button>
           <button onClick={() => navigate("/projects")} className="text-gray-500 hover:text-white transition-colors"><ArrowLeft size={16} /></button>
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <span className="text-xl">{project.icon}</span>

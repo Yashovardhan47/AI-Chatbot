@@ -92,7 +92,7 @@ async def google_login(credential: str) -> dict:
     except Exception:
         raise ValueError("Invalid Google credential")
 
-    if not info.get("email_verified") or info.get("iss") not in {"accounts.google.com", "https://accounts.google.com"} or not info.get("sub"):
+    if info.get("email_verified") is not True or info.get("iss") not in {"accounts.google.com", "https://accounts.google.com"} or not info.get("sub") or not info.get("email"):
         raise ValueError("Google account email must be verified")
     email = info["email"].strip().lower()
     user  = await User.find_one(User.email == email)
@@ -107,6 +107,8 @@ async def google_login(credential: str) -> dict:
 
     if not user.is_active:
         raise ValueError("Account deactivated")
+    if user.provider == Provider.google and user.provider_id != info["sub"]:
+        raise ValueError("Google identity does not match the linked account")
     await User.get_motor_collection().update_one({"_id": user.id}, {"$set": {"last_login": datetime.utcnow()}, "$inc": {"stats.total_sessions": 1}})
     return await issue_tokens(await User.get(user.id))
 

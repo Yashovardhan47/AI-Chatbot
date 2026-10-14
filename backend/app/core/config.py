@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    REFRESH_COOKIE_SAMESITE: str = "lax"
 
     MONGO_URI: str = "mongodb://localhost:27017"
     DB_NAME: str = "neurofusion"
@@ -54,6 +55,8 @@ class Settings(BaseSettings):
             raise ValueError("AI_PROVIDER must be auto, anthropic or ollama")
         if self.EMBEDDINGS_PROVIDER not in {"none", "ollama"}:
             raise ValueError("EMBEDDINGS_PROVIDER must be none or ollama")
+        if self.REFRESH_COOKIE_SAMESITE not in {"lax", "strict", "none"} or (self.REFRESH_COOKIE_SAMESITE == "none" and self.DEBUG):
+            raise ValueError("Use lax/strict cookies locally; cross-site cookies require DEBUG=false and SameSite=none")
 
     class Config:
         env_file = ".env"
