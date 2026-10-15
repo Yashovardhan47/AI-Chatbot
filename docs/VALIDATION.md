@@ -5,6 +5,21 @@ synthetic. No live user database, paid model call or real email was used.
 
 ## Typography and motion refresh
 
+[GitHub Actions run 38689851397](https://github.com/Yashovardhan47/AI-Chatbot/actions/runs/38689851397)
+passed for code commit `22d62bafde43e3a2ec9e0f2470a0dd6a29ebcfdb`:
+97 backend tests against real MongoDB, 64 frontend tests, Vite production build
+and Compose configuration validation.
+
+The existing Site successfully deployed source commit
+`88d05da37b19f183cfc665592ff5450e143365f7`. The static-host HashRouter variant
+passed the same 64 frontend tests and production build before packaging; source
+comparison confirmed it matches the canonical frontend plus that router adapter.
+The archive contains the self-hosted font subsets and their licenses.
+
+- [Updated public overview](https://neurosense-ai-workspace-demo.kummarayashovardhan.chatgpt.site/)
+- [Interactive UI tour with example data](https://neurosense-ai-workspace-demo.kummarayashovardhan.chatgpt.site/#/tour)
+
+
 Local validation: **64 frontend tests**, **97 backend tests** with
 mongomock-motor, and the Vite production build passed. The build packages four
 self-hosted variable-font subsets. No runtime font CDN is required.
