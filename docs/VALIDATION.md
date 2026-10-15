@@ -27,6 +27,22 @@ synthetic. No live user database, paid model call or real email was used.
 - Source whitespace checks passed. The repository's MongoDB service CI is the
   required check for real-database behavior and Compose configuration.
 
+## Verified GitHub CI and published interface
+
+[GitHub Actions run 38682934156](https://github.com/Yashovardhan47/AI-Chatbot/actions/runs/38682934156)
+passed for code commit `7de7d7058c3e5af6f344ee401b893e376f972ec4`:
+97 backend tests against real MongoDB 7.0.14, 44 frontend tests, Vite production
+build and Compose configuration validation. The real Google verification library
+still uses local test keys/certificates; this is not a live OAuth consent check.
+
+The existing Site was successfully published from frontend source commit
+`c2967577ecf0924b6c6f6e1bf60a6b67f1f1124e`. Its static-host variant uses HashRouter
+and passed the same 44 frontend tests before packaging.
+
+- [Public overview](https://neurosense-ai-workspace-demo.kummarayashovardhan.chatgpt.site/)
+- [Interactive example-data tour](https://neurosense-ai-workspace-demo.kummarayashovardhan.chatgpt.site/#/tour)
+- [Protected workspace home](https://neurosense-ai-workspace-demo.kummarayashovardhan.chatgpt.site/#/home)
+
 ## What these checks do not establish
 
 The hosted frontend has no deployed Python API or Google client ID. A real Google
