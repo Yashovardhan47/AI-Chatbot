@@ -1,3 +1,4 @@
+import KineticText from "../motion/KineticText";
 import { useAppFrame } from "../context/frameContext";
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -45,7 +46,7 @@ export default function ProjectDetail() {
           <button onClick={() => navigate("/projects")} className="text-gray-500 hover:text-white transition-colors"><ArrowLeft size={16} /></button>
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <span className="text-xl">{project.icon}</span>
-            <div className="min-w-0"><h1 className="font-semibold text-sm text-white truncate">{project.name}</h1>{project.description && <p className="text-[10px] text-gray-500 truncate">{project.description}</p>}</div>
+            <div className="min-w-0"><h1 className="font-semibold text-sm text-white truncate"><KineticText>{project.name}</KineticText></h1>{project.description && <p className="text-[10px] text-gray-500 truncate">{project.description}</p>}</div>
           </div>
           <button onClick={startNewChat} className="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white text-xs font-medium px-3 py-2 rounded-xl transition-colors flex-shrink-0"><Plus size={13} /> New chat</button>
         </div>

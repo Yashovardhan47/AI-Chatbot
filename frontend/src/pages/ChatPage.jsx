@@ -116,6 +116,7 @@ export default function ChatPage() {
 
   return (
     <div className="flex h-screen bg-gray-950 text-white overflow-hidden relative">
+      <h1 className="sr-only">{activeChat?.title || "Conversation"}</h1>
 
       {!frame && <Sidebar open={sidebarOpen} onClose={() => setSidebar(false)} selectedModel={selectedModel} onModelChange={setModel}
         onNewChat={async () => { const chat = await newChat(); navigate(`/chat/${chat.id}`); }} />}

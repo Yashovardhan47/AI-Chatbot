@@ -72,7 +72,7 @@ export default function MessageBubble({ message, chatId, isLast, onSpeak }) {
   }
 
   if (isUser) return (
-    <div className="flex justify-end mb-5">
+    <div className="ns-message flex justify-end mb-5" data-speaker="user">
       <div className="max-w-[82%]">
         {message.attachments?.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-1.5 justify-end">
@@ -89,10 +89,10 @@ export default function MessageBubble({ message, chatId, isLast, onSpeak }) {
   );
 
   return (
-    <div className="flex gap-3 mb-5 group">
+    <div className="ns-message flex gap-3 mb-5 group" data-speaker="assistant">
       <div className="flex-shrink-0 mt-0.5"><AIAvatar size={28} thinking={message.streaming} mode="auto" /></div>
       <div className="flex-1 min-w-0">
-        <div className={`rounded-2xl rounded-tl-sm px-4 py-3 bg-gray-900/50 border border-gray-800/50 backdrop-blur ${message.streaming ? "animate-pulse" : ""}`}>
+        <div className={`rounded-2xl rounded-tl-sm px-4 py-3 bg-gray-900/50 border border-gray-800/50 backdrop-blur`}>
           {renderContent(message.content)}
         </div>
         {!message.streaming && (

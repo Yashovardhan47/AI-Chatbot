@@ -1,3 +1,4 @@
+import KineticText from "../motion/KineticText";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Settings, Lock, Palette, Globe, Volume2, Save } from "lucide-react";
@@ -62,10 +63,10 @@ export default function SettingsPage() {
       <div className="max-w-2xl mx-auto px-4 py-6">
         <div className="flex items-center gap-3 mb-6">
           <button onClick={() => navigate(-1)} className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"><ArrowLeft size={17} /></button>
-          <div className="flex items-center gap-2"><Settings size={18} className="text-violet-400" /><h1 className="text-lg font-bold">Settings</h1></div>
+          <div className="flex items-center gap-2"><Settings size={18} className="text-violet-400" /><h1 className="text-lg font-bold"><KineticText>Settings</KineticText></h1></div>
         </div>
 
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 mb-4">
+        <div data-motion-card className="bg-gray-900 border border-gray-800 rounded-2xl p-5 mb-4">
           <h2 className="text-sm font-semibold mb-4 flex items-center gap-2"><Palette size={14} className="text-violet-400" /> Preferences</h2>
 
           <div className="mb-4">
@@ -108,13 +109,13 @@ export default function SettingsPage() {
           </button>
         </div>
 
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 mb-4"><h2 className="text-sm font-semibold mb-4">Account security & services</h2><button className="ns-text-button" onClick={() => navigate("/security")}>Open session verification & Google linking →</button><p className="text-xs text-gray-400 mb-3">{security ? `${security.sessions.length} active refresh sessions · Google ${security.system.google_enabled ? 'enabled' : 'not configured'} · AI provider ${security.system.provider.provider}` : 'Loading account session status…'}</p><p className="text-xs text-gray-500 mb-4">Sign out everywhere to invalidate existing JWT access tokens and refresh sessions. Configuration status does not guarantee provider availability.</p><div className="flex flex-wrap gap-4 items-center"><button className="text-xs text-red-300" onClick={async () => { if (!confirm('Sign out all devices and this session?')) return; try { await workspaceAPI.revokeAll(); await useAuthStore.getState().logout(); navigate('/login'); } catch { toast.error('Unable to revoke sessions'); } }}>Sign out all sessions</button><ConnectionSettings compact/></div></div>
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 mb-4">
+        <div data-motion-card className="bg-gray-900 border border-gray-800 rounded-2xl p-5 mb-4"><h2 className="text-sm font-semibold mb-4">Account security & services</h2><button className="ns-text-button" onClick={() => navigate("/security")}>Open session verification & Google linking →</button><p className="text-xs text-gray-400 mb-3">{security ? `${security.sessions.length} active refresh sessions · Google ${security.system.google_enabled ? 'enabled' : 'not configured'} · AI provider ${security.system.provider.provider}` : 'Loading account session status…'}</p><p className="text-xs text-gray-500 mb-4">Sign out everywhere to invalidate existing JWT access tokens and refresh sessions. Configuration status does not guarantee provider availability.</p><div className="flex flex-wrap gap-4 items-center"><button className="text-xs text-red-300" onClick={async () => { if (!confirm('Sign out all devices and this session?')) return; try { await workspaceAPI.revokeAll(); await useAuthStore.getState().logout(); navigate('/login'); } catch { toast.error('Unable to revoke sessions'); } }}>Sign out all sessions</button><ConnectionSettings compact/></div></div>
+        <div data-motion-card className="bg-gray-900 border border-gray-800 rounded-2xl p-5 mb-4">
           <h2 className="text-sm font-semibold mb-3">Your data</h2><p className="text-xs text-gray-500 mb-4">Export your profile, chats, knowledge, memories and commitments as a portable JSON file.</p>
           <button disabled={dataBusy} onClick={async () => { setDataBusy(true); try { const { data } = await accountAPI.export(); saveDownload(data, "neurosense-account.json"); } catch { toast.error("Unable to export data"); } finally { setDataBusy(false); } }} className="text-sm bg-gray-800 px-4 py-2 rounded-xl">Export my workspace</button>
           <div className="border-t border-gray-800 mt-5 pt-5"><h3 className="text-sm text-red-300">Erase workspace data</h3><p className="text-xs text-gray-500 mt-2 mb-3">Permanently remove saved chats, documents, memories, snapshots, relationships, commitments and reminders. Your account remains, and all sessions are signed out.</p><input aria-label="Erasure confirmation" value={erasure} onChange={e => setErasure(e.target.value)} placeholder="Type DELETE MY DATA" className="w-full bg-gray-950 border border-gray-700 rounded-xl px-3 py-2 text-sm"/><button disabled={dataBusy || erasure !== "DELETE MY DATA"} onClick={async () => { setDataBusy(true); try { await accountAPI.erase(erasure); await useAuthStore.getState().logout(); navigate("/login"); toast.success("Workspace erased"); } catch { toast.error("Unable to erase workspace"); } finally { setDataBusy(false); } }} className="mt-3 text-sm text-red-300 bg-red-500/10 border border-red-500/30 disabled:opacity-30 px-4 py-2 rounded-xl">Erase my workspace</button></div>
         </div>
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+        <div data-motion-card className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
           <h2 className="text-sm font-semibold mb-4 flex items-center gap-2"><Lock size={14} className="text-violet-400" /> Change password</h2>
           <form onSubmit={changePassword} className="space-y-3">
             <div>

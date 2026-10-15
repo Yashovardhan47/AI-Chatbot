@@ -1,0 +1,118 @@
+/* Finite entrances and lightweight feedback. Content is visible without JS. */
+:root { --motion-ease: cubic-bezier(.22, 1, .36, 1); --motion-fast: 180ms; }
+.ns-type-word { display: inline-block; vertical-align: baseline; }
+html[data-motion="expressive"] .ns-type-word {
+  animation: ns-word-in 650ms var(--motion-ease) both;
+  animation-delay: min(calc(var(--word-index, 0) * 46ms), 280ms);
+}
+@keyframes ns-word-in {
+  from { opacity: 0; transform: translateY(.35em) rotate(1.4deg); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ns-soft-in { from { opacity: .25; } to { opacity: 1; } }
+@keyframes ns-dialog-in {
+  from { opacity: 0; transform: translateY(12px) scale(.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ns-message-in {
+  from { opacity: 0; transform: translateY(9px); }
+  to { opacity: 1; transform: none; }
+}
+html[data-motion="expressive"] :is(.ns-tour-screen, .nx-story-example, .ns-message) {
+  animation: ns-message-in 380ms var(--motion-ease) both;
+}
+html[data-motion="expressive"] :is([role="dialog"], .ns-memory-detail, .ns-nav-scrim) {
+  animation: ns-dialog-in 280ms var(--motion-ease) both;
+}
+html[data-motion="expressive"] .ns-modal-backdrop { animation: ns-soft-in 180ms ease-out; }
+html[data-motion="subtle"] :is([role="dialog"], .ns-tour-screen, .ns-message) {
+  animation: ns-soft-in 180ms ease-out;
+}
+:is(.nx-button, .ns-primary, .ns-secondary, .ns-new-chat, .ns-auth-submit, .ns-icon-button, .ns-motion-control>button) {
+  transition: transform var(--motion-fast) var(--motion-ease), box-shadow var(--motion-fast) ease, background-color var(--motion-fast) ease, color var(--motion-fast) ease;
+}
+:is(.nx-button, .ns-primary, .ns-secondary, .ns-new-chat):active:not(:disabled) { transform: translateY(1px) scale(.975); }
+:is(.nx-button, .ns-primary, .ns-new-chat)>svg { transition: transform 240ms var(--motion-ease); }
+:is(.nx-button, .ns-primary, .ns-new-chat):hover>svg:last-child { transform: translate(2px, -2px); }
+.ns-nav-item { transition: background-color 180ms ease, color 180ms ease, box-shadow 180ms ease; }
+.ns-nav-item>svg { transition: transform 240ms var(--motion-ease); }
+.ns-nav-item:hover>svg { transform: translateX(2px); }
+.ns-nav-item.active { box-shadow: inset 3px 0 0 #ad85c5; }
+:is(.ns-section-tabs, .ns-tour-window>aside)>button { transition: color 180ms ease, background-color 180ms ease; }
+:is(.ns-conversation-list a, .ns-search-result, .ns-home-task, .ns-thread-card, [data-motion-card]) {
+  transition: border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease;
+}
+.ns-conversation-list a:hover, .ns-search-result:hover { box-shadow: inset 3px 0 0 #b18bcc; }
+:is(.ns-app, .ns-auth-page) :is(input:not([type="radio"]):not([type="checkbox"]), textarea, select) {
+  transition: border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+}
+:is(.ns-app, .ns-auth-page) :is(input, textarea, select):focus-visible {
+  outline: 2px solid #a681be; outline-offset: 3px;
+}
+:is(.ns-app, .nx-presentation, .ns-tour, .ns-auth-page) :is(a, button):focus-visible {
+  outline: 2px solid #b08bc7; outline-offset: 4px;
+}
+.ns-message:focus-within .group-hover\:opacity-100 { opacity: 1; }
+.ns-message { overflow-anchor: auto; }
+@media (hover: hover) and (pointer: fine) {
+  html[data-motion="expressive"] :is(.nx-feature-bento>a, .ns-thread-card, .ns-home-metrics>a, .ns-metric, .ns-tour-tiles>button) {
+    transition: transform 280ms var(--motion-ease), box-shadow 240ms ease, border-color 180ms ease;
+    transform: perspective(1000px) rotateX(var(--surface-rx, 0deg)) rotateY(var(--surface-ry, 0deg));
+  }
+  html[data-motion="expressive"] [data-surface-active="true"] {
+    box-shadow: 0 12px 32px -18px #80539d65;
+  }
+  html[data-motion="expressive"] :is(.ns-thread-card, .ns-home-metrics>a, .ns-metric)[data-surface-active="true"] {
+    background-image: radial-gradient(circle at var(--surface-x, 50%) var(--surface-y, 50%), #bca0d415, transparent 65%);
+  }
+}
+/* The motion preference is available on public, account and workspace pages. */
+.ns-motion-control { position: relative; display: inline-flex; flex-shrink: 0; color: #88639a; }
+.ns-motion-control>button { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; border: 1px solid #bda1ce38; background: #b89bca0a; }
+.ns-motion-control>button:hover, .ns-motion-control>button[aria-expanded="true"] { background: #bda1ce20; }
+.ns-motion-popover { position: absolute; z-index: 100; top: calc(100% + 12px); right: 0; width: 310px; max-width: calc(100vw - 32px); padding: 17px; border: 1px solid #e5dce9; border-radius: 17px; background: #fffcf9; color: #584761; box-shadow: 0 20px 65px #33223c26; font: 12px/1.5 var(--font-body); text-align: left; }
+.ns-motion-popover>header { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 0 0 13px; border-bottom: 1px solid #e9e0ec; font-weight: 600; }
+.ns-motion-popover>header button { padding: 5px; display: grid; place-items: center; border-radius: 6px; }
+.ns-motion-popover fieldset { border: 0; margin: 13px 0 0; padding: 0; min-width: 0; }
+.ns-motion-popover legend { font-size: 10px; color: #84718e; padding-bottom: 6px; letter-spacing: .05em; }
+.ns-motion-popover label { display: flex; align-items: center; gap: 10px; padding: 10px 7px; cursor: pointer; border-radius: 10px; }
+.ns-motion-popover label:hover, .ns-motion-popover label:has(input:checked) { background: #b395c914; }
+.ns-motion-control .ns-motion-popover input { accent-color: #9673ac; width: 15px; height: 15px; flex-shrink: 0; padding: 0; margin: 0; box-shadow: none; }
+.ns-motion-popover label>span { flex: 1; }
+.ns-motion-popover strong { display: block; font-size: 12px; font-weight: 600; }
+.ns-motion-popover small { display: block; margin-top: 2px; color: #85718f; font-size: 10px; line-height: 1.5; }
+.ns-motion-popover>p { margin: 12px 0 0; padding: 10px; border-radius: 9px; background: #e3d2ee33; font-size: 10px; line-height: 1.7; color: #796085; }
+.theme-dark .ns-motion-popover { background: #251d30; color: #e0d2e8; border-color: #51405d; box-shadow: 0 20px 65px #0005; }
+.theme-dark .ns-motion-popover>header { border-color: #51405d; }
+.theme-dark .ns-motion-popover :is(small, legend) { color: #bda9cb; }
+.theme-dark .ns-motion-popover>p { color: #d4bfdf; }
+.nx-nav>nav { order: 1; margin-left: auto; }
+.nx-nav-utilities { order: 2; display: flex; align-items: center; gap: 8px; }
+.ns-auth-foot>.ns-motion-control { margin-left: auto; }
+.ns-auth-foot { flex-wrap: wrap; }
+.ns-auth-notice { display: flex; align-items: flex-start; gap: 13px; padding: 20px; margin: 20px 0; background: #e9ddef55; border: 1px solid #dfcfe7; border-radius: 14px; color: #80608f; font-size: 12px; line-height: 1.8; }
+.ns-auth-notice svg { flex-shrink: 0; margin-top: 2px; }
+@media(max-width:760px) {
+  .nx-nav>nav { display: none; position: absolute; top: calc(100% - 5px); left: 16px; right: 16px; margin: 0; padding: 22px; background: #fffaf7; border: 1px solid #e9deed; border-radius: 14px; box-shadow: 0 18px 40px #53396615; flex-direction: column; align-items: stretch; font-size: 13px; gap: 20px; }
+  .nx-nav>nav.open { display: flex; animation: ns-soft-in 180ms ease-out; }
+  .nx-nav>nav>button { display: block; text-align: left; }
+  .nx-nav>nav>.nx-nav-signin { border: 0; padding-left: 0; }
+  .nx-nav-toggle { display: grid; place-items: center; color: #9c7bb1; padding: 7px; }
+  .nx-nav .nx-button.small { justify-content: space-between; padding: 13px 18px; font-size: 12px; }
+  .ns-motion-popover { position: fixed; top: 88px; right: 16px; }
+}
+/* Subtle mode also stops decorative loops from the original presentation. */
+html[data-motion="subtle"] :is(.nx-orb, .nx-orb-note-one, .nx-cta-orbit, .nx-status-dot, .ns-status-dot) { animation: none !important; }
+html[data-motion="subtle"] .ns-type-word { animation: none; }
+html[data-motion="subtle"] :is(.nx-button, .nx-feature-bento>a, .ns-nav-item, .ns-nav-item>svg):hover { transform: none; }
+html[data-motion="subtle"] :is(.nx-button, .ns-primary, .ns-new-chat):hover>svg:last-child { transform: none; }
+html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="off"] *::after {
+  animation: none !important; transition: none !important; scroll-behavior: auto !important;
+}
+html[data-motion="off"] :is(.nx-button, .nx-feature-bento>a, .ns-nav-item, .ns-nav-item>svg, .ns-primary, .ns-secondary, .ns-new-chat):is(:hover, :active) { transform: none !important; }
+html[data-motion="off"] :is(.nx-button, .ns-primary, .ns-new-chat):hover>svg:last-child { transform: none !important; }
+@media(prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  :is(.nx-button, .nx-feature-bento>a, .ns-nav-item, .ns-nav-item>svg, .ns-primary, .ns-secondary, .ns-new-chat):is(:hover, :active) { transform: none !important; }
+  :is(.nx-button, .ns-primary, .ns-new-chat):hover>svg:last-child { transform: none !important; }
+}

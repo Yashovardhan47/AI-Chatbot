@@ -1,7 +1,26 @@
-# NeuroSense v7 validation
+# NeuroSense validation
 
 Validation date: 2026-10-15. All test accounts, messages and signing keys are
 synthetic. No live user database, paid model call or real email was used.
+
+## Typography and motion refresh
+
+Local validation: **64 frontend tests**, **97 backend tests** with
+mongomock-motor, and the Vite production build passed. The build packages four
+self-hosted variable-font subsets. No runtime font CDN is required.
+
+New checks cover persisted and cross-tab motion settings, reduced-motion
+overrides, blocked storage, accessible keyboard dismissal/focus, actual heading
+text, navigation without losing the shell draft, single card entrances,
+streamed-answer stability, cancelled animations/observers and missing browser
+animation APIs. Updated recovery pages exercise API error/retry, actual reset
+tokens and verification failure. See MOTION.md for route coverage and limits.
+
+No browser-control skill is available, so animation smoothness and responsive
+visual screenshots were not verified in a browser. No live Google sign-in or
+hosted Python-service verification is added by this UI change. Proposed research
+features and prior-art overlap are documented in RESEARCH_DIRECTION.md; the
+proposal is not represented as an implemented or proven world-first feature.
 
 ## Completed local checks
 

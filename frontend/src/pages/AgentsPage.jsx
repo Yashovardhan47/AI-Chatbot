@@ -1,3 +1,4 @@
+import KineticText from "../motion/KineticText";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bot, Swords, CalendarCheck, ArrowLeft, FileSearch, Globe, Loader2, ChevronDown, ChevronUp } from "lucide-react";
@@ -15,7 +16,7 @@ const MODELS = [
 function Section({ title, icon: Icon, color, children }) {
   const [open, setOpen] = useState(true);
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden mb-4">
+    <div data-motion-card className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden mb-4">
       <button onClick={() => setOpen(o => !o)} className="w-full flex items-center gap-3 px-5 py-4 hover:bg-gray-800/50 transition-colors">
         <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${color}`}><Icon size={16} className="text-white" /></div>
         <span className="font-semibold text-sm text-white flex-1 text-left">{title}</span>
@@ -29,7 +30,7 @@ function Section({ title, icon: Icon, color, children }) {
 function ResultBox({ data, label = "Result" }) {
   if (!data) return null;
   return (
-    <div className="mt-4 bg-gray-950 border border-gray-700 rounded-xl p-4">
+    <div data-motion-card className="mt-4 bg-gray-950 border border-gray-700 rounded-xl p-4">
       <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-2">{label}</p>
       <pre className="text-sm text-gray-200 whitespace-pre-wrap font-sans leading-relaxed">{typeof data === "string" ? data : JSON.stringify(data, null, 2)}</pre>
     </div>
@@ -62,7 +63,7 @@ export default function AgentsPage() {
       <div className="max-w-3xl mx-auto px-4 py-6">
         <div className="flex items-center gap-3 mb-6">
           <button onClick={() => navigate("/chat")} className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"><ArrowLeft size={17} /></button>
-          <div className="flex items-center gap-2"><Bot size={20} className="text-violet-400" /><h1 className="text-lg font-bold">AI Enhancement Lab</h1></div>
+          <div className="flex items-center gap-2"><Bot size={20} className="text-violet-400" /><h1 className="text-lg font-bold"><KineticText>AI Enhancement Lab</KineticText></h1></div>
         </div>
 
         <div className="flex items-center gap-3 mb-6 bg-gray-900 border border-gray-800 rounded-xl p-3">

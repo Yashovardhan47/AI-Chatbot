@@ -1,8 +1,10 @@
+import KineticText from "../motion/KineticText";
 import { Link } from "react-router-dom";
 import { Brain, CheckCircle2, ShieldCheck } from "lucide-react";
 import { Brand } from "./AppShell";
 import ConnectionSettings from "./ConnectionSettings";
 import NeuralOrb from "./NeuralOrb";
+import MotionControl from "../motion/MotionControl";
 
 export default function AuthLayout({ title, description, children }) {
   return <div className="ns-auth-page nx-auth-page">
@@ -10,7 +12,7 @@ export default function AuthLayout({ title, description, children }) {
       <Link to="/"><Brand light /></Link>
       <NeuralOrb compact />
       <div className="nx-auth-story-copy"><span className="ns-eyebrow">YOUR IDEAS HAVE A NEXT CHAPTER.</span>
-        <h1>A little context.<br /><em>A new possibility.</em></h1>
+        <h1><KineticText>A little context.<br /><em>A new possibility.</em></KineticText></h1>
         <p>A workspace for the ideas you keep coming back to. Grounded memories, connected sources and conversations that move forward.</p>
         <div className="ns-auth-evidence"><span><Brain size={16} />A memory you can inspect · example</span>
           <blockquote>“I prefer explanations with exact source citations.”</blockquote>
@@ -22,8 +24,8 @@ export default function AuthLayout({ title, description, children }) {
     <main className="ns-auth-form-area">
       <div className="ns-auth-mobile-brand"><Link to="/"><Brand /></Link></div>
       <section className="ns-auth-form"><span className="ns-eyebrow">YOUR LASTING AI WORKSPACE</span>
-        <h2>{title}</h2><p>{description}</p>{children}
-        <div className="ns-auth-foot"><Link to="/">← Project overview</Link><ConnectionSettings compact /></div>
+        <h2><KineticText>{title}</KineticText></h2><p>{description}</p>{children}
+        <div className="ns-auth-foot"><Link to="/">← Project overview</Link><MotionControl /><ConnectionSettings compact /></div>
       </section>
     </main>
   </div>;

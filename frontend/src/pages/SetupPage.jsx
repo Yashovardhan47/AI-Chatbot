@@ -1,3 +1,4 @@
+import KineticText from "../motion/KineticText";
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowRight, Check, Inbox, MousePointer2, Sparkles } from "lucide-react";
@@ -25,7 +26,7 @@ export default function SetupPage() {
     } catch { setError("We couldn't save your choices. Please try again."); }
     finally { setBusy(false); }
   }
-  return <main className="ns-setup"><span className="ns-eyebrow">LET'S MAKE THIS YOURS · FIRST-TIME SETUP</span><h1>A lasting memory.<br /><em>On your terms.</em></h1><p>Choose how context carries forward. You can change this in Settings at any time.</p>
+  return <main className="ns-setup"><span className="ns-eyebrow">LET'S MAKE THIS YOURS · FIRST-TIME SETUP</span><h1><KineticText>A lasting memory.<br /><em>On your terms.</em></KineticText></h1><p>Choose how context carries forward. You can change this in Settings at any time.</p>
     <form onSubmit={finish}><label className="ns-field-label" htmlFor="workspace-goal">What are you working toward? <span>Optional</span></label><input id="workspace-goal" value={goal} maxLength={160} onChange={event => setGoal(event.target.value)} placeholder="A research project, a product, a new skill…" />
       <fieldset><legend>How should NeuroSense remember?</legend><div className="ns-policy-grid">{policies.map(([value, Icon, title, description, badge]) => <label key={value} className={`ns-policy-choice ${policy === value ? "selected" : ""}`}><input type="radio" name="memory-policy" value={value} checked={policy === value} onChange={() => setPolicy(value)} /><span className="ns-policy-top"><Icon size={23} />{policy === value && <Check size={17} />}</span><strong>{title}</strong>{badge && <small>{badge}</small>}<p>{description}</p></label>)}</div></fieldset>
       <p className="ns-setup-note">Private turns skip memory recall and capture. Conversation transcripts are still saved in your account.</p>

@@ -1,3 +1,4 @@
+import KineticText from "../motion/KineticText";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, User, Mail, Calendar, MessageSquare, Brain, Save } from "lucide-react";
@@ -27,10 +28,10 @@ export default function ProfilePage() {
       <div className="max-w-xl mx-auto px-4 py-6">
         <div className="flex items-center gap-3 mb-6">
           <button onClick={() => navigate(-1)} className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"><ArrowLeft size={17} /></button>
-          <div className="flex items-center gap-2"><User size={18} className="text-violet-400" /><h1 className="text-lg font-bold">Profile</h1></div>
+          <div className="flex items-center gap-2"><User size={18} className="text-violet-400" /><h1 className="text-lg font-bold"><KineticText>Profile</KineticText></h1></div>
         </div>
 
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-4 text-center">
+        <div data-motion-card className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-4 text-center">
           <div className="w-20 h-20 rounded-full bg-violet-600/20 border border-violet-500/30 flex items-center justify-center mx-auto mb-4">
             <span className="text-2xl font-bold text-violet-400">{user?.name?.[0]?.toUpperCase()}</span>
           </div>

@@ -4,6 +4,8 @@ import { Toaster } from "react-hot-toast";
 import useAuthStore from "./context/authStore";
 import AppShell from "./components/AppShell";
 import { loginDestination, safeDestination } from "./services/routing";
+import { MotionProvider } from "./motion/MotionProvider";
+import MotionDirector from "./motion/MotionDirector";
 
 // Eager: needed immediately on first load
 import LandingPage from "./pages/LandingPage";
@@ -61,7 +63,7 @@ function GuestRoute({ children }) {
 }
 
 export function AppRoutes() {
-  return <Suspense fallback={<RouteLoader />}><Routes>
+  return <><MotionDirector /><Suspense fallback={<RouteLoader />}><Routes>
     <Route path="/" element={<LandingPage />} />
     <Route path="/welcome" element={<Navigate to="/" replace />} />
     <Route path="/tour" element={<TourPage />} />
@@ -90,7 +92,7 @@ export function AppRoutes() {
       <Route path="/memory-graph" element={<GraphPage />} />
     </Route>
     <Route path="*" element={<Navigate to="/" replace />} />
-  </Routes></Suspense>;
+  </Routes></Suspense></>;
 }
 
 export default function App() {
@@ -98,7 +100,7 @@ export default function App() {
   useEffect(() => { init(); }, [init]);
 
   return (
-    <BrowserRouter>
+    <MotionProvider><BrowserRouter>
       <Toaster
         position="top-right"
         toastOptions={{
@@ -109,6 +111,6 @@ export default function App() {
         }}
       />
       <AppRoutes />
-    </BrowserRouter>
+    </BrowserRouter></MotionProvider>
   );
 }

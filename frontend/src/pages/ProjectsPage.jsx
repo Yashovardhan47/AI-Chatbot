@@ -1,3 +1,4 @@
+import KineticText from "../motion/KineticText";
 import { useAppFrame } from "../context/frameContext";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -13,7 +14,7 @@ const PROJECT_ICONS = ["🚀", "🔬", "💡", "📊", "🎯", "🛠️", "📱"
 function ProjectCard({ project, onOpen, onDelete, onEdit }) {
   const [menu, setMenu] = useState(false);
   return (
-    <div onClick={() => onOpen(project.id)} className="group relative bg-gray-900 border border-gray-800 hover:border-gray-700 rounded-2xl p-5 cursor-pointer transition-all">
+    <div data-motion-card onClick={() => onOpen(project.id)} className="group relative bg-gray-900 border border-gray-800 hover:border-gray-700 rounded-2xl p-5 cursor-pointer transition-all">
       <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl" style={{ background: project.color }} />
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
@@ -55,7 +56,7 @@ function CreateProjectModal({ onClose, onSave, editProject }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md shadow-2xl">
+      <div role="dialog" aria-modal="true" aria-label={editProject ? "Edit project" : "New project"} className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md shadow-2xl">
         <div className="flex items-center justify-between p-5 border-b border-gray-800">
           <h2 className="font-semibold text-sm">{editProject ? "Edit project" : "New project"}</h2>
           <button onClick={onClose} className="text-gray-500 hover:text-white"><X size={16} /></button>
@@ -120,7 +121,7 @@ export default function ProjectsPage() {
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-800 flex-shrink-0">
           <button onClick={() => frame ? frame.toggleNav() : setSidebar(o => !o)} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"><Menu size={17} /></button>
-          <div className="flex items-center gap-2 flex-1"><FolderKanban size={18} className="text-violet-400" /><h1 className="font-semibold text-sm">Projects</h1></div>
+          <div className="flex items-center gap-2 flex-1"><FolderKanban size={18} className="text-violet-400" /><h1 className="font-semibold text-sm"><KineticText>Projects</KineticText></h1></div>
           <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-xs font-medium px-3 py-2 rounded-xl transition-colors"><Plus size={13} /> New project</button>
         </div>
         <div className="flex-1 overflow-y-auto p-6">
