@@ -29,6 +29,8 @@ class Preferences(BaseModel):
     knowledge_enabled: bool = True
     reminder_emails: bool = False
     timezone: str = "Asia/Kolkata"
+    onboarding_completed: bool = False
+    workspace_goal: str = ""
 
 
 class Stats(BaseModel):
@@ -62,6 +64,7 @@ class User(Document):
         name = "users"
 
     def safe_dict(self) -> dict:
-        d = self.model_dump(exclude={"password", "verify_token", "reset_token", "reset_expires", "auth_version", "revision_id"})
+        d = self.model_dump(exclude={"password", "provider_id", "verify_token", "reset_token", "reset_expires", "auth_version", "revision_id"})
         d["id"] = str(self.id)
+        d["auth_methods"] = {"password": bool(self.password), "google": bool(self.provider_id)}
         return d

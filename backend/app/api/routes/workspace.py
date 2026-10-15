@@ -54,7 +54,7 @@ async def activity(user: User = Depends(get_current_user)):
 
 @router.get("/system")
 async def system_status(user: User = Depends(get_current_user)):
-    return {"version": "6.0.0", "provider": provider_status(), "google_enabled": bool(settings.GOOGLE_CLIENT_ID),
+    return {"version": "7.0.0", "provider": provider_status(), "google_enabled": bool(settings.GOOGLE_CLIENT_ID),
         "embeddings_configured": settings.EMBEDDINGS_PROVIDER != "none", "email_configured": bool(settings.MAIL_USERNAME and settings.MAIL_PASSWORD),
         "memory_review_required": user.preferences.memory_review_required, "production_mode": not settings.DEBUG}
 

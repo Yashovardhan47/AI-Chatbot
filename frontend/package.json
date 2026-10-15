@@ -1,6 +1,6 @@
 {
-  "name": "neurofusion-frontend",
-  "version": "6.0.0",
+  "name": "neurosense-workspace",
+  "version": "7.0.0",
   "private": true,
   "type": "module",
   "scripts": {

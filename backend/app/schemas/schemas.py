@@ -2,20 +2,24 @@ from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List
 
 
-# Auth — NO password length restriction anywhere
+# Passwords are pre-hashed before bcrypt; limits also bound request work.
 class RegisterRequest(BaseModel):
     name:     str = Field(min_length=2, max_length=80)
     email:    EmailStr
-    password: str
+    password: str = Field(min_length=8, max_length=1024)
 
 
 class LoginRequest(BaseModel):
     email:    EmailStr
-    password: str
+    password: str = Field(min_length=1, max_length=1024)
 
 
 class GoogleAuthRequest(BaseModel):
-    credential: str
+    credential: str = Field(min_length=1, max_length=10000)
+
+
+class GoogleLinkRequest(GoogleAuthRequest):
+    current_password: str = Field(min_length=1, max_length=1024)
 
 
 class ForgotPasswordRequest(BaseModel):
@@ -23,12 +27,12 @@ class ForgotPasswordRequest(BaseModel):
 
 
 class ResetPasswordRequest(BaseModel):
-    password: str
+    password: str = Field(min_length=8, max_length=1024)
 
 
 class ChangePasswordRequest(BaseModel):
     current_password: str
-    new_password:     str
+    new_password:     str = Field(min_length=8, max_length=1024)
 
 
 # User
@@ -50,6 +54,8 @@ class UpdatePreferencesRequest(BaseModel):
     knowledge_enabled: Optional[bool] = None
     reminder_emails: Optional[bool] = None
     timezone: Optional[str] = None
+    onboarding_completed: Optional[bool] = None
+    workspace_goal: Optional[str] = Field(None, max_length=160)
 
 
 # Chat

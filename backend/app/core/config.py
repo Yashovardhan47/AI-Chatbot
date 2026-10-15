@@ -3,10 +3,12 @@ from functools import lru_cache
 
 
 class Settings(BaseSettings):
-    APP_NAME: str = "NeuroFusion AI"
+    APP_NAME: str = "NeuroSense AI"
     DEBUG: bool = True
     SECRET_KEY: str = "neurofusion_dev_secret_key_change_in_production_abc123xyz"
     ALGORITHM: str = "HS256"
+    JWT_ISSUER: str = "neurosense-api"
+    JWT_AUDIENCE: str = "neurosense-workspace"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     REFRESH_COOKIE_SAMESITE: str = "lax"

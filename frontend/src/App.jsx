@@ -1,8 +1,9 @@
 import { useEffect, Suspense, lazy } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import useAuthStore from "./context/authStore";
 import AppShell from "./components/AppShell";
+import { loginDestination, safeDestination } from "./services/routing";
 
 // Eager: needed immediately on first load
 import LandingPage from "./pages/LandingPage";
@@ -26,32 +27,73 @@ const KnowledgePage  = lazy(() => import("./pages/KnowledgePage"));
 const ContinuityPage = lazy(() => import("./pages/ContinuityPage"));
 const GraphPage      = lazy(() => import("./pages/GraphPage"));
 const ReviewPage = lazy(() => import("./pages/ReviewPage"));
+const SetupPage = lazy(() => import("./pages/SetupPage"));
+const SecurityPage = lazy(() => import("./pages/SecurityPage"));
+const ConversationsPage = lazy(() => import("./pages/ConversationsPage"));
+const TourPage = lazy(() => import("./pages/TourPage"));
 
 // Instant, lightweight fallback — shown for the few ms a lazy chunk takes
 // to load, so switching pages never *looks* frozen.
 function RouteLoader() {
   return (
-    <div className="flex h-screen items-center justify-center bg-gray-950">
-      <div className="h-6 w-6 rounded-full border-2 border-violet-500 border-t-transparent animate-spin" />
+    <div className="ns-route-loader" role="status">
+      <div className="ns-loader-ring" /><span>Opening NeuroSense…</span>
     </div>
   );
 }
 
-function PrivateRoute({ children }) {
+function PrivateRoute() {
   const { user, loading } = useAuthStore();
+  const location = useLocation();
   if (loading) return <RouteLoader />;
-  return user ? <AppShell>{children}</AppShell> : <Navigate to="/welcome" replace />;
+  if (!user) return <Navigate to={loginDestination(location)} replace />;
+  if (!user.preferences?.onboarding_completed && location.pathname !== "/setup")
+    return <Navigate to={"/setup?next=" + encodeURIComponent(safeDestination(location.pathname + location.search))} replace />;
+  return <AppShell><Outlet /></AppShell>;
 }
 
 function GuestRoute({ children }) {
   const { user, loading } = useAuthStore();
+  const location = useLocation();
   if (loading) return <RouteLoader />;
-  return !user ? children : <Navigate to="/dashboard" replace />;
+  return !user ? children : <Navigate to={safeDestination(new URLSearchParams(location.search).get("next"))} replace />;
+}
+
+export function AppRoutes() {
+  return <Suspense fallback={<RouteLoader />}><Routes>
+    <Route path="/" element={<LandingPage />} />
+    <Route path="/welcome" element={<Navigate to="/" replace />} />
+    <Route path="/tour" element={<TourPage />} />
+    <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
+    <Route path="/register" element={<GuestRoute><RegisterPage /></GuestRoute>} />
+    <Route path="/verify-email/:token" element={<VerifyEmail />} />
+    <Route path="/forgot-password" element={<GuestRoute><ForgotPassword /></GuestRoute>} />
+    <Route path="/reset-password/:token" element={<GuestRoute><ResetPassword /></GuestRoute>} />
+    <Route element={<PrivateRoute />}>
+      <Route path="/setup" element={<SetupPage />} />
+      <Route path="/home" element={<DashboardPage />} />
+      <Route path="/dashboard" element={<Navigate to="/home" replace />} />
+      <Route path="/chat" element={<ConversationsPage />} />
+      <Route path="/chat/:id" element={<ChatPage />} />
+      <Route path="/projects" element={<ProjectsPage />} />
+      <Route path="/projects/:id" element={<ProjectDetail />} />
+      <Route path="/agents" element={<AgentsPage />} />
+      <Route path="/settings" element={<SettingsPage />} />
+      <Route path="/security" element={<SecurityPage />} />
+      <Route path="/profile" element={<ProfilePage />} />
+      <Route path="/memory" element={<MemoryPage />} />
+      <Route path="/knowledge" element={<KnowledgePage />} />
+      <Route path="/continuity" element={<ContinuityPage />} />
+      <Route path="/review" element={<ReviewPage />} />
+      <Route path="/memory-graph" element={<GraphPage />} />
+    </Route>
+    <Route path="*" element={<Navigate to="/" replace />} />
+  </Routes></Suspense>;
 }
 
 export default function App() {
   const init = useAuthStore(s => s.init);
-  useEffect(() => { init(); }, []);
+  useEffect(() => { init(); }, [init]);
 
   return (
     <BrowserRouter>
@@ -64,34 +106,7 @@ export default function App() {
           error:   { iconTheme: { primary: "#D85A30", secondary: "#fff" } },
         }}
       />
-      <Suspense fallback={<RouteLoader />}>
-        <Routes>
-          <Route path="/"        element={<LandingPage />} />
-          <Route path="/welcome" element={<LandingPage />} />
-
-          <Route path="/login"                 element={<GuestRoute><LoginPage /></GuestRoute>} />
-          <Route path="/register"              element={<GuestRoute><RegisterPage /></GuestRoute>} />
-          <Route path="/verify-email/:token"   element={<VerifyEmail />} />
-          <Route path="/forgot-password"       element={<GuestRoute><ForgotPassword /></GuestRoute>} />
-          <Route path="/reset-password/:token" element={<GuestRoute><ResetPassword /></GuestRoute>} />
-
-          <Route path="/dashboard"    element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
-          <Route path="/chat"         element={<PrivateRoute><ChatPage /></PrivateRoute>} />
-          <Route path="/chat/:id"     element={<PrivateRoute><ChatPage /></PrivateRoute>} />
-          <Route path="/projects"     element={<PrivateRoute><ProjectsPage /></PrivateRoute>} />
-          <Route path="/projects/:id" element={<PrivateRoute><ProjectDetail /></PrivateRoute>} />
-          <Route path="/agents"       element={<PrivateRoute><AgentsPage /></PrivateRoute>} />
-          <Route path="/settings"     element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
-          <Route path="/profile"      element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
-          <Route path="/memory"       element={<PrivateRoute><MemoryPage /></PrivateRoute>} />
-          <Route path="/knowledge"    element={<PrivateRoute><KnowledgePage /></PrivateRoute>} />
-          <Route path="/continuity"   element={<PrivateRoute><ContinuityPage /></PrivateRoute>} />
-          <Route path="/review" element={<PrivateRoute><ReviewPage /></PrivateRoute>} />
-          <Route path="/memory-graph" element={<PrivateRoute><GraphPage /></PrivateRoute>} />
-
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Suspense>
+      <AppRoutes />
     </BrowserRouter>
   );
 }

@@ -129,7 +129,7 @@ export default function Sidebar({ open, onClose, selectedModel, onModelChange, o
   const allFiltered = filterChats(chats);
 
   const navItems = [
-    { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { path: "/home", label: "Dashboard", icon: LayoutDashboard },
     { path: "/chat",      label: "Chat",      icon: MessageSquare },
     { path: "/projects",  label: "Projects",  icon: FolderKanban },
     { path: "/agents",    label: "Agents",    icon: Bot },
@@ -148,7 +148,7 @@ export default function Sidebar({ open, onClose, selectedModel, onModelChange, o
         <div className="flex items-center justify-between px-3 pt-3 pb-2 flex-shrink-0">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg bg-violet-600/20 border border-violet-500/30 flex items-center justify-center"><Sparkles size={13} className="text-violet-400" /></div>
-            <span className="font-bold text-sm text-white">NeuroFusion</span>
+            <span className="font-bold text-sm text-white">NeuroSense</span>
           </div>
           <button onClick={onClose} className="lg:hidden text-gray-600 hover:text-white p-1"><X size={14} /></button>
         </div>

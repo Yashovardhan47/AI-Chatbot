@@ -229,6 +229,7 @@ async def test_local_registration_rotation_logout_without_redis(client, monkeypa
 async def test_google_verified_account_and_deactivation(owner, monkeypatch):
     from google.oauth2 import id_token
     monkeypatch.setattr(settings, "GOOGLE_CLIENT_ID", "test-client")
+    await owner.set({"provider": "google", "provider_id": "google-sub"})
     info = {"email": owner.email, "email_verified": True, "sub": "google-sub", "iss": "https://accounts.google.com"}
     monkeypatch.setattr(id_token, "verify_oauth2_token", lambda *args: dict(info))
     assert (await auth_service.google_login("test-credential"))["access_token"]

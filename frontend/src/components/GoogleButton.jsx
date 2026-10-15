@@ -15,8 +15,10 @@ export function loadGoogleIdentity(){
   }).catch(error=>{scriptPromise=undefined;document.querySelector('script[data-neurosense-google]')?.remove();throw error;});
   return scriptPromise;
 }
-export default function GoogleButton({onSuccess}){
+export default function GoogleButton({onSuccess,onCredential}){
   const ref=useRef(null);const googleLogin=useAuthStore(s=>s.googleLogin);
+  const handlers=useRef({onSuccess,onCredential});handlers.current={onSuccess,onCredential};
+  const signingIn=useRef(false);
   const [status,setStatus]=useState('loading'),[retry,setRetry]=useState(0);
   useEffect(()=>{let active=true;setStatus('loading');async function setup(){try{
     const {data}=await authAPI.config();if(!active)return;
@@ -24,10 +26,13 @@ export default function GoogleButton({onSuccess}){
     if(!data.google_enabled||!data.google_client_id){setStatus('unconfigured');return;}
     await loadGoogleIdentity();if(!active||!ref.current)return;
     window.google.accounts.id.initialize({client_id:data.google_client_id,callback:async response=>{
-      if(!active)return;try{await googleLogin(response.credential);toast.success('Signed in with Google');onSuccess?.();}
-      catch(err){toast.error(err.response?.data?.detail||'Google sign-in failed');}
+      if(!active||signingIn.current)return;
+      signingIn.current=true;setStatus('authenticating');
+      try{const result=await (handlers.current.onCredential?handlers.current.onCredential(response.credential):googleLogin(response.credential));if(active){toast.success(handlers.current.onCredential?'Google account linked':'Signed in with Google');handlers.current.onSuccess?.(result);}}
+      catch(err){if(active)toast.error(err.response?.data?.detail||err.message||'Google sign-in failed');}
+      finally{signingIn.current=false;if(active)setStatus('ready');}
     }});
-    window.google.accounts.id.renderButton(ref.current,{theme:'outline',size:'large',width:360,shape:'rectangular',text:'continue_with'});setStatus('ready');
+    window.google.accounts.id.renderButton(ref.current,{theme:'outline',size:'large',width:Math.min(ref.current.clientWidth||360,360),shape:'rectangular',text:'continue_with'});setStatus('ready');
   }catch{if(active)setStatus('unavailable');}}setup();return()=>{active=false;};},[retry]);
-  return <div className="ns-google-area"><div ref={ref} className="ns-google-button"/>{status==='loading'&&<p>Checking Google sign-in…</p>}{status==='unconfigured'&&<p>Google sign-in is not enabled for this server.</p>}{status==='unavailable'&&<p>Sign-in service unavailable. <button type="button" onClick={()=>setRetry(v=>v+1)}>Retry</button></p>}</div>;
+  return <div className="ns-google-area" aria-busy={status==='authenticating'}><div ref={ref} className="ns-google-button"/>{status==='authenticating'&&<p role="status">Verifying your Google account…</p>}{status==='loading'&&<p>Checking Google sign-in…</p>}{status==='unconfigured'&&<p>Google sign-in is not enabled for this server.</p>}{status==='unavailable'&&<p>Sign-in service unavailable. <button type="button" onClick={()=>setRetry(v=>v+1)}>Retry</button></p>}</div>;
 }

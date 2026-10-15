@@ -1,6 +1,6 @@
 import { useAppFrame } from "../context/frameContext";
 import { useEffect, useRef, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Menu, Globe, Brain, Mic, MicOff, Paperclip, Send, Sparkles, Square, Shield } from "lucide-react";
 import toast from "react-hot-toast";
 import useChatStore from "../context/chatStore";
@@ -25,9 +25,10 @@ export default function ChatPage() {
   const frame = useAppFrame();
   const { id } = useParams();
   const navigate = useNavigate();
-  const { chats, activeChat, messages, memories, memoryTotal, streaming, streamBuffer, fetchChats, fetchHistory, openChat, newChat, sendMessage, fetchMemories, uploadFiles, getTodayChat } = useChatStore();
+  const location = useLocation();
+  const { chatError, connection, chats, activeChat, messages, memories, memoryTotal, streaming, streamBuffer, fetchChats, fetchHistory, openChat, newChat, sendMessage, fetchMemories, uploadFiles, getTodayChat } = useChatStore();
 
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(location.state?.draft || "");
   const [mode, setMode] = useState("auto");
   const [selectedModel, setModel] = useState("claude-sonnet-4-6");
   const [webSearch, setWebSearch] = useState(false);
@@ -45,6 +46,7 @@ export default function ChatPage() {
   const recognRef = useRef(null);
 
   useEffect(() => { fetchChats(); fetchMemories(); fetchHistory(); }, []);
+  useEffect(() => { if (location.state?.draft) navigate(location.pathname, { replace: true, state: {} }); }, []);
   useEffect(() => { continuityAPI.overview().then(({ data }) => { if (data.provider.provider === "ollama") setModel("local"); }).catch(() => {}); }, []);
   useEffect(() => () => useChatStore.getState().disconnect(), []);
   useEffect(() => {
@@ -148,6 +150,8 @@ export default function ChatPage() {
           {ttsActive && <button onClick={() => { window.speechSynthesis?.cancel(); setTtsActive(false); }} className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] border border-orange-500/40 bg-orange-600/20 text-orange-400 flex-shrink-0"><Square size={9} fill="currentColor" /> Stop</button>}
         </div>
 
+        {chatError && <div className="ns-chat-status" role="alert">{chatError}<button onClick={() => openChat(id)}>Retry connection</button></div>}
+        {!chatError && connection !== "ready" && <div className="ns-chat-status" role="status">{connection === "connecting" ? "Connecting to your conversation…" : "Conversation disconnected. Your input stays here."}<button onClick={() => openChat(id)}>Reconnect</button></div>}
         <div className="flex-1 overflow-y-auto px-4 py-6 scrollbar-thin">
           {messages.length === 0 && !streaming && (
             <div className="flex flex-col items-center justify-center h-full text-center">
@@ -156,7 +160,7 @@ export default function ChatPage() {
               <p className="text-gray-500 text-sm max-w-sm mb-2">Using <span style={{ color: currentMode.color }} className="font-medium">{modelInfo.name}</span></p>
               {memoryTotal > 0 && <p className="text-xs text-violet-400/70 mb-6">{memoryTotal} stored facts across your sessions and projects</p>}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-md w-full mt-2">
-                {["Explain Python async/await with examples","Recall what we decided earlier code","What are the latest AI trends?","Help me write a research paper intro","Build a REST API in Python","Analyze this concept and give me sources"].map(p => (
+                {["What do you remember about my current goals?","Help me revisit an earlier project decision","Remember: I prefer answers with source citations","Explain a difficult concept step by step","Help me compare two approaches","Analyze my source documents"].map(p => (
                   <button key={p} onClick={() => { setInput(p); inputRef.current?.focus(); }} className="text-left text-xs bg-gray-900/60 backdrop-blur hover:bg-gray-800/60 border border-gray-800 hover:border-gray-700 rounded-xl p-3 text-gray-400 hover:text-gray-200 transition-all">{p}</button>
                 ))}
               </div>
@@ -188,7 +192,7 @@ export default function ChatPage() {
               {uploading ? <div className="h-4 w-4 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" /> : <Paperclip size={15} />}
             </button>
             <input ref={fileRef} type="file" multiple className="hidden" accept="image/*,application/pdf,text/*,.csv,.json,.js,.py,.java,.ts,.html,.css,.md,audio/*,video/*" onChange={onFilePick} />
-            <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)}
+            <textarea aria-label="Message NeuroSense" ref={inputRef} value={input} onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
               placeholder="Message NeuroSense… (Enter to send, Shift+Enter for new line)" rows={1}
               className="flex-1 bg-transparent outline-none text-sm text-white placeholder-gray-600 resize-none max-h-36 leading-relaxed"

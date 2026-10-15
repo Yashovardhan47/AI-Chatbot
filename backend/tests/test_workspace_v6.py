@@ -112,13 +112,14 @@ async def test_activity_and_system_do_not_return_foreign_or_secret_data(client, 
     events = (await client.get("/api/workspace/activity")).json()["events"]
     assert len(events) == 1 and events[0]["title"] == "My durable context"
     system = (await client.get("/api/workspace/system")).json()
-    assert system["version"] == "6.0.0" and "SECRET_KEY" not in str(system)
+    assert system["version"] == "7.0.0" and "SECRET_KEY" not in str(system)
 
 
 async def test_google_route_issues_real_project_jwt_and_rejects_unverified_claim(client, owner, monkeypatch):
     from google.oauth2 import id_token
     app.dependency_overrides.clear()
     monkeypatch.setattr(settings, "GOOGLE_CLIENT_ID", "public-test-client")
+    await owner.set({"provider": "google", "provider_id": "stable-google-sub"})
     info = {"email": owner.email, "email_verified": True, "sub": "stable-google-sub", "iss": "https://accounts.google.com"}
     def verified(credential, request, audience):
         assert audience == "public-test-client"

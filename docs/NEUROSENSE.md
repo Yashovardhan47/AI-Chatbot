@@ -1,3 +1,16 @@
+# NeuroSense v7 — a workspace with lasting context
+
+The public overview (`/`) and signed-in home (`/home`) are different pages.
+New accounts choose a memory policy in `/setup`. The home composer carries a
+project-scoped draft into chat; a conversation library supports search, pins,
+renaming and deletion. `/security` verifies the current JWT against the Python
+server, rotates refresh credentials and supports explicit Google linking.
+The separate public `/tour` uses labeled example records and performs no login.
+
+See [AUTH_VERIFICATION.md](AUTH_VERIFICATION.md) for exact authentication checks
+and the live Google setup requirements. V7 retires browser-stored access tokens
+and requires sign-in again after an upgrade.
+
 # NeuroSense AI
 
 ## Goal and repository analysis

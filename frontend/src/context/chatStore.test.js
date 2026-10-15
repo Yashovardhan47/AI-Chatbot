@@ -7,11 +7,12 @@ vi.mock("../services/api", () => ({
   createChatSocket: mocks.createSocket,
 }));
 import useChatStore from "./chatStore";
+import { setAccessToken, clearSession } from "../services/session";
 
 beforeEach(() => {
   useChatStore.getState().reset();
   vi.clearAllMocks();
-  localStorage.setItem("accessToken", "account-one");
+  clearSession(); setAccessToken("account-one");
   vi.stubGlobal("WebSocket", { OPEN: 1 });
   mocks.sockets = [];
   mocks.createSocket.mockImplementation((id, token, handlers) => {
@@ -62,7 +63,7 @@ describe("chat memory lifecycle", () => {
     let resolve;
     mocks.getAll.mockImplementation(() => new Promise(done => { resolve = done; }));
     const pending = useChatStore.getState().fetchMemories();
-    localStorage.setItem("accessToken", "account-two");
+    clearSession(); setAccessToken("account-two");
     resolve({ data: { memories: [{ fact: "account-one-private" }], total: 1 } });
     await pending;
     expect(useChatStore.getState().memories).toEqual([]);

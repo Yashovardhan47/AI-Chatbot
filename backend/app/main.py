@@ -22,7 +22,7 @@ from app.api.routes.workspace import router as workspace_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings.validate_runtime()
-    logger.info("Starting NeuroFusion AI...")
+    logger.info("Starting NeuroSense AI...")
     await connect_db()
     await connect_redis()
     logger.info("Ready at http://localhost:8000")
@@ -35,14 +35,14 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="NeuroSense AI Workspace", version="6.0.0",
+    title="NeuroSense AI Workspace", version="7.0.0",
     description="Personal AI assistant with grounded, versioned long-term NeuroSense memory",
     lifespan=lifespan, docs_url="/api/docs", redoc_url="/api/redoc",
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.FRONTEND_URL, "http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000"],
+    allow_origins=[settings.FRONTEND_URL] + (["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000"] if settings.DEBUG else []),
     allow_credentials=True, allow_methods=["*"], allow_headers=["*"],
 )
 
@@ -63,4 +63,4 @@ app.include_router(workspace_router)
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "app": settings.APP_NAME, "version": "6.0.0", "memory": "NeuroSense"}
+    return {"status": "ok", "app": settings.APP_NAME, "version": "7.0.0", "memory": "NeuroSense"}

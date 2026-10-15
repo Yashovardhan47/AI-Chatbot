@@ -22,10 +22,11 @@ async def is_revoked(token):
     return bool(await TokenRevocation.find_one({"token_hash": token_hash(token)}))
 
 
-async def issue_tokens(user):
-    refresh = create_refresh_token(str(user.id), user.auth_version)
+async def issue_tokens(user, method=None):
+    method = method or ("google" if user.provider == Provider.google else "password")
+    refresh = create_refresh_token(str(user.id), user.auth_version, method)
     await AuthSession(user_id=str(user.id), token_hash=token_hash(refresh), expires_at=datetime.utcnow()+timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)).insert()
-    return {"access_token": create_access_token(str(user.id), user.auth_version), "refresh_token": refresh, "user": user.safe_dict()}
+    return {"access_token": create_access_token(str(user.id), user.auth_version, method), "refresh_token": refresh, "user": user.safe_dict()}
 
 
 async def register_user(name: str, email: str, password: str) -> dict:
@@ -69,10 +70,8 @@ async def verify_email(token: str) -> dict:
 async def login_user(email: str, password: str) -> dict:
     email = email.strip().lower()
     user = await User.find_one(User.email == email, User.provider == Provider.local)
-    if not user or not user.password:
-        raise ValueError("No account found with this email")
-    if not verify_password(password, user.password):
-        raise ValueError("Wrong password")
+    if not user or not user.password or not verify_password(password, user.password):
+        raise ValueError("Email or password is incorrect")
     if not user.is_verified:
         raise ValueError("Email not verified. Check your email for the verification link.")
     if not user.is_active:
@@ -82,7 +81,7 @@ async def login_user(email: str, password: str) -> dict:
     return await issue_tokens(await User.get(user.id))
 
 
-async def google_login(credential: str) -> dict:
+async def verify_google_identity(credential: str) -> dict:
     if not settings.GOOGLE_CLIENT_ID:
         raise ValueError("Google OAuth not configured")
     try:
@@ -94,23 +93,55 @@ async def google_login(credential: str) -> dict:
 
     if info.get("email_verified") is not True or info.get("iss") not in {"accounts.google.com", "https://accounts.google.com"} or not info.get("sub") or not info.get("email"):
         raise ValueError("Google account email must be verified")
+    return info
+
+
+async def google_login(credential: str) -> dict:
+    info = await verify_google_identity(credential)
     email = info["email"].strip().lower()
-    user  = await User.find_one(User.email == email)
+    # Google subjects are stable; an email address is not an account link.
+    user = await User.find_one(User.provider_id == info["sub"])
     if not user:
+        existing = await User.find_one(User.email == email)
+        if existing:
+            raise ValueError("Sign in with your existing method, then link Google in Account security.")
         user = User(
             name=info.get("name", email.split("@")[0]), email=email,
             avatar=info.get("picture", ""), provider=Provider.google,
             provider_id=info["sub"], is_verified=True,
             preferences=Preferences(), stats=Stats(),
         )
-        await user.insert()
+        try:
+            await user.insert()
+        except DuplicateKeyError:
+            raise ValueError("This account already exists. Sign in with your existing method.")
 
     if not user.is_active:
         raise ValueError("Account deactivated")
-    if user.provider == Provider.google and user.provider_id != info["sub"]:
-        raise ValueError("Google identity does not match the linked account")
     await User.get_motor_collection().update_one({"_id": user.id}, {"$set": {"last_login": datetime.utcnow()}, "$inc": {"stats.total_sessions": 1}})
-    return await issue_tokens(await User.get(user.id))
+    return await issue_tokens(await User.get(user.id), "google")
+
+
+async def link_google(user, credential: str, current_password: str) -> dict:
+    if not user.password or not verify_password(current_password, user.password):
+        raise ValueError("Confirm your current account password to link Google")
+    info = await verify_google_identity(credential)
+    if info["email"].strip().lower() != user.email.lower():
+        raise ValueError("Choose the Google account with the same email as this workspace")
+    existing = await User.find_one(User.provider_id == info["sub"])
+    if existing and existing.id != user.id:
+        raise ValueError("This Google account is linked to another workspace")
+    if user.provider_id and user.provider_id != info["sub"]:
+        raise ValueError("This workspace already has a different Google identity")
+    # The email index serializes this same-email linking policy. Use a compare
+    # and set so concurrent link requests cannot replace an existing subject.
+    result = await User.get_motor_collection().update_one(
+        {"_id": user.id, "auth_version": user.auth_version, "is_active": True,
+         "provider_id": {"$in": [None, info["sub"]]}},
+        {"$set": {"provider_id": info["sub"]}})
+    if not result.matched_count:
+        raise ValueError("Account changed. Sign in again before linking Google")
+    return {"user": (await User.get(user.id)).safe_dict()}
 
 
 async def refresh_tokens(refresh_token: str) -> dict:
@@ -128,7 +159,7 @@ async def refresh_tokens(refresh_token: str) -> dict:
         "user_id": str(user.id), "revoked": False, "expires_at": {"$gt": datetime.utcnow()}}, {"$set": {"revoked": True}})
     if not result.matched_count:
         raise ValueError("Refresh session expired or already used")
-    return await issue_tokens(user)
+    return await issue_tokens(user, payload["amr"])
 
 
 async def logout_user(refresh_token: str, access_token: str):

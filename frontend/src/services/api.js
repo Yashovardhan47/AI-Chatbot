@@ -1,57 +1,72 @@
 import axios from "axios";
 import { apiBase } from "./runtime";
+import { accessToken, sessionEpoch, setAccessToken, clearSession } from "./session";
 
-const api = axios.create({
-  baseURL: apiBase(),
-  withCredentials: true,
-  timeout: 20000,
-});
+const api = axios.create({ baseURL: apiBase(), withCredentials: true, timeout: 20000 });
+export const authTransport = axios.create({ baseURL: apiBase(), withCredentials: true, timeout: 10000 });
+let refreshFlight;
 
-api.interceptors.request.use(cfg => {
-  const token = localStorage.getItem("accessToken");
-  if (token) cfg.headers.Authorization = `Bearer ${token}`;
-  return cfg;
-});
-
-// FIX: no more window.location.href hard-reload on auth failure.
-// Clearing the token + notifying the app lets React Router handle the
-// redirect via PrivateRoute — no full page reload, no "needs refresh" bug.
-function onAuthFailure() {
-  localStorage.removeItem("accessToken");
-  window.dispatchEvent(new Event("auth:logout"));
+function stale() { return new axios.CanceledError("The account session changed"); }
+export function refreshAccessToken() {
+  const epoch = sessionEpoch();
+  if (refreshFlight?.epoch === epoch) return refreshFlight.promise;
+  const run = async () => {
+    if (epoch !== sessionEpoch()) throw stale();
+    const { data } = await authTransport.post("/auth/refresh", {});
+    if (epoch !== sessionEpoch()) throw stale();
+    setAccessToken(data.access_token, epoch);
+    return data.access_token;
+  };
+  // Serialize rotating cookies across tabs when the browser supports Web Locks.
+  const promise = (navigator.locks?.request ? navigator.locks.request("neurosense-refresh", run) : run())
+    .catch(error => {
+      if (epoch === sessionEpoch() && [401, 403].includes(error.response?.status)) clearSession();
+      throw error;
+    }).finally(() => { if (refreshFlight?.epoch === epoch) refreshFlight = undefined; });
+  refreshFlight = { epoch, promise };
+  return promise;
 }
-
-let refreshing = false, queue = [];
-api.interceptors.response.use(res => res, async err => {
-  const orig = err.config;
-  if (err.response?.status === 401 && !orig._retry && !orig.url?.includes("/auth/refresh") && !orig.url?.includes("/auth/login") && !orig.url?.includes("/auth/register")) {
-    if (refreshing) return new Promise((res, rej) => queue.push({ res, rej }))
-      .then(t => { orig.headers.Authorization = `Bearer ${t}`; return api(orig); });
-    orig._retry = true; refreshing = true;
-    try {
-      const { data } = await api.post("/auth/refresh");
-      localStorage.setItem("accessToken", data.access_token);
-      queue.forEach(p => p.res(data.access_token)); queue = [];
-      orig.headers.Authorization = `Bearer ${data.access_token}`;
-      return api(orig);
-    } catch {
-      queue.forEach(p => p.rej(err)); queue = [];
-      onAuthFailure();
-    } finally { refreshing = false; }
+api.interceptors.request.use(config => {
+  if (!config.skipAuth) {
+    config.sessionEpoch ??= sessionEpoch();
+    if (config.sessionEpoch !== sessionEpoch()) throw stale();
+    const token = accessToken();
+    if (token) config.headers.Authorization = `Bearer ${token}`;
   }
-  return Promise.reject(err);
+  return config;
 });
-
+api.interceptors.response.use(response => {
+  if (!response.config.skipAuth && response.config.sessionEpoch !== sessionEpoch()) throw stale();
+  return response;
+}, async error => {
+  const original = error.config;
+  if (!original || original.skipAuth || original.skipRefresh) return Promise.reject(error);
+  if (original.sessionEpoch !== sessionEpoch()) throw stale();
+  if (error.response?.status !== 401) return Promise.reject(error);
+  if (original.retried) { clearSession(); return Promise.reject(error); }
+  original.retried = true;
+  // Another request may have completed rotation before this 401 arrived.
+  const current = accessToken();
+  const previous = original.headers?.Authorization;
+  const next = current && previous !== `Bearer ${current}` ? current : await refreshAccessToken();
+  if (original.sessionEpoch !== sessionEpoch()) throw stale();
+  original.headers.Authorization = `Bearer ${next}`;
+  return api(original);
+});
+const publicRequest = { skipAuth: true, skipRefresh: true };
 export const authAPI = {
-  config: () => api.get("/auth/config", { timeout: 5000 }),
-  register: d => api.post("/auth/register", d),
-  login:    d => api.post("/auth/login", d),
-  googleAuth: d => api.post("/auth/google", d),
-  logout:   () => api.post("/auth/logout"),
-  forgotPw: d => api.post("/auth/forgot-password", d),
-  resetPw:  (t,d) => api.put(`/auth/reset-password/${t}`, d),
-  verifyEmail: t => api.get(`/auth/verify/${t}`),
-  getMe:    () => api.get("/auth/me"),
+  config: () => api.get("/auth/config", { ...publicRequest, timeout: 5000 }),
+  register: data => api.post("/auth/register", data, publicRequest),
+  login: data => api.post("/auth/login", data, publicRequest),
+  googleAuth: data => api.post("/auth/google", data, publicRequest),
+  linkGoogle: data => api.post("/auth/google/link", data),
+  logout: token => api.post("/auth/logout", {}, { ...publicRequest,
+    headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+  forgotPw: data => api.post("/auth/forgot-password", data, publicRequest),
+  resetPw: (token, data) => api.put(`/auth/reset-password/${token}`, data, publicRequest),
+  verifyEmail: token => api.get(`/auth/verify/${token}`, publicRequest),
+  getMe: () => api.get("/auth/me"),
+  session: () => api.get("/auth/session"),
 };
 
 export const chatAPI = {
@@ -123,11 +138,12 @@ export function saveDownload(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export function createChatSocket(chatId, token, { onDelta, onDone, onChatCreated, onError, onClose }) {
+export function createChatSocket(chatId, token, { onDelta, onDone, onChatCreated, onError, onClose, onOpen }) {
   const parsed = new URL(apiBase(), window.location.origin);
   parsed.protocol = parsed.protocol === "https:" ? "wss:" : "ws:";
   const base = parsed.href.replace(/\/$/, "");
   const ws = new WebSocket(`${base}/chat/ws/${chatId}?token=${token}`);
+  ws.onopen = () => onOpen?.();
   ws.onmessage = e => {
     try {
       const data = JSON.parse(e.data);

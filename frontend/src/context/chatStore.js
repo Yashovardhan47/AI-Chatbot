@@ -1,3 +1,4 @@
+import { accessToken, sessionEpoch } from "../services/session";
 import { create } from "zustand";
 import { chatAPI, memoryAPI, fileAPI, createChatSocket } from "../services/api";
 import api from "../services/api";
@@ -5,6 +6,7 @@ import toast from "react-hot-toast";
 
 const useChatStore = create((set, get) => ({
   chats: [],
+  chatsLoading: false, chatsError: null, chatError: null, connection: "disconnected",
   activeChat: null,
   messages: [],
   memories: [],
@@ -17,28 +19,30 @@ const useChatStore = create((set, get) => ({
   openRequest: 0,
 
   fetchChats: async () => {
-    const token = localStorage.getItem("accessToken");
+    const epoch = sessionEpoch();
+    set({ chatsLoading: true, chatsError: null });
     try {
       const { data } = await chatAPI.getAll();
-      if (token !== localStorage.getItem("accessToken")) return;
+      if (epoch !== sessionEpoch()) return;
       set({ chats: data.chats });
-    } catch { set({ chats: [] }); }
+    } catch { if (epoch === sessionEpoch()) set({ chatsError: "Conversations could not load. Please retry." }); }
+    finally { if (epoch === sessionEpoch()) set({ chatsLoading: false }); }
   },
 
   fetchHistory: async () => {
-    const token = localStorage.getItem("accessToken");
+    const epoch = sessionEpoch();
     try {
       const { data } = await api.get("/chat/history");
-      if (token !== localStorage.getItem("accessToken")) return;
+      if (epoch !== sessionEpoch()) return;
       set({ historyGroups: data.groups || {} });
     } catch { set({ historyGroups: {} }); }
   },
 
   getTodayChat: async () => {
-    const token = localStorage.getItem("accessToken");
+    const epoch = sessionEpoch();
     try {
       const { data } = await api.post("/chat/daily");
-      if (token !== localStorage.getItem("accessToken")) return null;
+      if (epoch !== sessionEpoch()) return null;
       const chat = data.chat;
       set(s => ({ chats: s.chats.find(c => c.id === chat.id) ? s.chats : [chat, ...s.chats] }));
       return chat;
@@ -48,19 +52,22 @@ const useChatStore = create((set, get) => ({
   openChat: async id => {
     get().disconnect();
     const request = get().openRequest + 1;
-    set({ openRequest: request });
+    set({ openRequest: request, activeChat: null, messages: [], chatError: null });
     try {
       const { data } = await chatAPI.getOne(id);
       if (get().openRequest !== request) return;
       set({ activeChat: data.chat, messages: data.chat.messages || [] });
       get()._connectSocket(id);
-    } catch { toast.error("Unable to open conversation"); }
+    } catch { if (get().openRequest === request) set({ chatError: "This conversation could not be opened. It may have been deleted or the server is unavailable." }); }
   },
 
   newChat: async (projectId = null) => {
     get().disconnect();
+    const request = get().openRequest;
+    const epoch = sessionEpoch();
     const { data } = await chatAPI.create({ project_id: projectId, mode: "auto" });
     const chat = data.chat;
+    if (epoch !== sessionEpoch() || request !== get().openRequest) throw new Error("The conversation changed");
     set(s => ({ chats: [chat, ...s.chats], activeChat: chat, messages: [] }));
     get()._connectSocket(chat.id);
     get().fetchHistory();
@@ -86,9 +93,11 @@ const useChatStore = create((set, get) => ({
   _connectSocket: chatId => {
     const old = get().socket;
     if (old) { try { old.close(); } catch {} }
-    const token = localStorage.getItem("accessToken");
+    const token = accessToken();
     if (!token) return;
+    set({ connection: "connecting" });
     const ws = createChatSocket(chatId, token, {
+      onOpen: () => { if (get().socket === ws) set({ connection: "ready" }); },
       onDelta: delta => {
         if (get().socket !== ws) return;
         set(s => ({ streamBuffer: s.streamBuffer + delta, streaming: true }));
@@ -120,13 +129,13 @@ const useChatStore = create((set, get) => ({
       },
       onError: message => {
         if (get().socket !== ws) return;
-        set({ streaming: false, streamBuffer: "" });
+        set({ streaming: false, streamBuffer: "", chatError: message });
         toast.error(message);
       },
       onClose: () => {
         if (get().socket !== ws) return;
         if (get().streaming) toast.error("Chat disconnected. Reload to continue.");
-        set({ streaming: false, streamBuffer: "", socket: null });
+        set({ streaming: false, streamBuffer: "", socket: null, connection: "disconnected" });
       },
     });
     set({ socket: ws });
@@ -152,10 +161,10 @@ const useChatStore = create((set, get) => ({
   },
 
   fetchMemories: async () => {
-    const token = localStorage.getItem("accessToken");
+    const epoch = sessionEpoch();
     try {
       const { data } = await memoryAPI.getAll();
-      if (token !== localStorage.getItem("accessToken")) return;
+      if (epoch !== sessionEpoch()) return;
       set({ memories: data.memories, memoryTotal: data.total, memoryError: null });
     } catch { set({ memoryError: "Unable to load memories" }); }
   },
@@ -172,12 +181,12 @@ const useChatStore = create((set, get) => ({
 
   disconnect: () => {
     const socket = get().socket;
-    set({ socket: null, streaming: false, streamBuffer: "", openRequest: get().openRequest + 1 });
+    set({ socket: null, streaming: false, streamBuffer: "", connection: "disconnected", openRequest: get().openRequest + 1 });
     if (socket) { try { socket.close(); } catch {} }
   },
   reset: () => {
     get().disconnect();
-    set({ chats: [], activeChat: null, messages: [], memories: [], memoryTotal: 0, memoryError: null, historyGroups: {} });
+    set({ chats: [], chatsLoading: false, chatsError: null, chatError: null, activeChat: null, messages: [], memories: [], memoryTotal: 0, memoryError: null, historyGroups: {} });
   },
 }));
 

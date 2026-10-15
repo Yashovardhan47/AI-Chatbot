@@ -1,53 +1,53 @@
 import { create } from "zustand";
-import { authAPI } from "../services/api";
+import { authAPI, refreshAccessToken } from "../services/api";
+import { accessToken, sessionEpoch, hasSession, setAccessToken, clearSession } from "../services/session";
 
-const useAuthStore = create((set) => ({
-  user: null,
-  token: localStorage.getItem("accessToken") || null,
-  loading: true,
-
-  init: async () => {
-    const token = localStorage.getItem("accessToken");
-    if (!token) { set({ loading: false }); return; }
-    try {
-      const { data } = await authAPI.getMe();
-      set({ user: data.user, loading: false });
-    } catch {
-      localStorage.removeItem("accessToken");
-      set({ user: null, token: null, loading: false });
-    }
-  },
-
-  login: async (email, password) => {
-    const { data } = await authAPI.login({ email, password });
-    localStorage.setItem("accessToken", data.access_token);
-    set({ user: data.user, token: data.access_token });
+let initialization;
+const useAuthStore = create((set) => {
+  async function signIn(request) {
+    const epoch = clearSession();
+    const { data } = await request();
+    if (epoch !== sessionEpoch()) throw new Error("This sign-in attempt was cancelled");
+    if (!data.user?.id || !data.access_token) throw new Error("Invalid authentication response");
+    setAccessToken(data.access_token, epoch, data.user.id);
+    set({ user: data.user, token: data.access_token, loading: false, sessionError: "" });
     return data;
-  },
-
-  // Google Identity Services returns a credential (ID token) — send to backend
-  googleLogin: async credential => {
-    const { data } = await authAPI.googleAuth({ credential });
-    localStorage.setItem("accessToken", data.access_token);
-    set({ user: data.user, token: data.access_token });
-    return data;
-  },
-
-  logout: async () => {
-    try { await authAPI.logout(); } catch {}
-    localStorage.removeItem("accessToken");
-    window.dispatchEvent(new Event("auth:logout"));
-    set({ user: null, token: null });
-  },
-
-  updateUser: updates => set(s => ({ user: { ...s.user, ...updates } })),
-}));
-
-// FIX: react to auth failures (401/refresh-fail) via event instead of a hard
-// page reload — React Router's PrivateRoute picks up the state change and
-// redirects instantly with no "needs refresh" glitch.
-window.addEventListener("auth:logout", () => {
-  useAuthStore.setState({ user: null, token: null, loading: false });
+  }
+  return {
+    user: null, token: null, loading: true, sessionError: "",
+    init: () => {
+      if (initialization?.epoch === sessionEpoch()) return initialization.promise;
+      const epoch = sessionEpoch();
+      const promise = (async () => {
+        if (!hasSession() && !accessToken()) { set({ loading: false }); return; }
+        try {
+          if (!accessToken()) await refreshAccessToken();
+          const { data } = await authAPI.getMe();
+          if (epoch !== sessionEpoch()) return;
+          if (!data.user?.id) throw new Error("Invalid account response");
+          setAccessToken(accessToken(), epoch, data.user.id);
+          set({ user: data.user, token: accessToken(), loading: false, sessionError: "" });
+        } catch (error) {
+          if (epoch !== sessionEpoch()) return;
+          set({ user: null, token: null, loading: false,
+            sessionError: error.response?.status === 401 ? "" : "Your session could not be restored. Check the connection and try again." });
+        }
+      })().finally(() => { if (initialization?.epoch === epoch) initialization = undefined; });
+      initialization = { epoch, promise };
+      return promise;
+    },
+    login: (email, password) => signIn(() => authAPI.login({ email, password })),
+    googleLogin: credential => signIn(() => authAPI.googleAuth({ credential })),
+    logout: () => {
+      const previous = accessToken();
+      clearSession(); // close sockets and hide private content immediately
+      return authAPI.logout(previous).catch(() => {});
+    },
+    updateUser: updates => set(state => state.user ? { user: { ...state.user, ...updates } } : {}),
+  };
 });
-
+window.addEventListener("auth:logout", () => {
+  useAuthStore.setState({ user: null, token: null, loading: false, sessionError: "" });
+});
+window.addEventListener("auth:token", event => useAuthStore.setState({ token: event.detail }));
 export default useAuthStore;

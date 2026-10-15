@@ -72,7 +72,7 @@ async def update_preferences(body: UpdatePreferencesRequest, current_user: User 
     if body.language    is not None: prefs.language    = body.language
     if body.memory_enabled is not None: prefs.memory_enabled = body.memory_enabled
     if body.memory_auto_capture is not None: prefs.memory_auto_capture = body.memory_auto_capture
-    for field in ("memory_review_required", "session_memory_enabled", "knowledge_enabled", "reminder_emails", "timezone"):
+    for field in ("memory_review_required", "session_memory_enabled", "knowledge_enabled", "reminder_emails", "timezone", "onboarding_completed", "workspace_goal"):
         value = getattr(body, field)
         if value is not None:
             setattr(prefs, field, value)

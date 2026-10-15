@@ -1,3 +1,4 @@
+import { accessToken, sessionEpoch } from "../services/session";
 import { create } from "zustand";
 import api from "../services/api";
 
@@ -5,8 +6,8 @@ const useProjectStore = create((set) => ({
   projects: [],
 
   fetchProjects: async () => {
-    const token = localStorage.getItem("accessToken");
-    try { const { data } = await api.get("/projects/"); if (token === localStorage.getItem("accessToken")) set({ projects: data.projects }); }
+    const epoch = sessionEpoch();
+    try { const { data } = await api.get("/projects/"); if (epoch === sessionEpoch()) set({ projects: data.projects }); }
     catch { set({ projects: [] }); }
   },
 

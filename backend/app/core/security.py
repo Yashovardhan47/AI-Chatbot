@@ -27,18 +27,33 @@ def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(_safe_password(plain), hashed)
 
 
-def create_access_token(subject: str, version: int = 0) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    return jwt.encode({"sub": subject, "exp": expire, "type": "access", "sv": version, "jti": uuid4().hex}, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+def _create_token(subject: str, version: int, kind: str, method: str, lifetime: timedelta) -> str:
+    now = datetime.now(timezone.utc)
+    return jwt.encode({"sub": subject, "iat": now, "exp": now + lifetime,
+        "iss": settings.JWT_ISSUER, "aud": settings.JWT_AUDIENCE,
+        "type": kind, "sv": version, "amr": method, "jti": uuid4().hex},
+        settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
-def create_refresh_token(subject: str, version: int = 0) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    return jwt.encode({"sub": subject, "exp": expire, "type": "refresh", "sv": version, "jti": uuid4().hex}, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+def create_access_token(subject: str, version: int = 0, method: str = "password") -> str:
+    return _create_token(subject, version, "access", method, timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
+
+
+def create_refresh_token(subject: str, version: int = 0, method: str = "password") -> str:
+    return _create_token(subject, version, "refresh", method, timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS))
 
 
 def decode_token(token: str) -> Optional[dict]:
     try:
-        return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-    except JWTError:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM],
+            issuer=settings.JWT_ISSUER, audience=settings.JWT_AUDIENCE,
+            options={"require_exp": True, "require_iat": True, "require_sub": True,
+                     "require_iss": True, "require_aud": True, "require_jti": True})
+        if (payload.get("type") not in {"access", "refresh"} or
+            type(payload.get("sv")) is not int or payload["sv"] < 0 or
+            payload.get("amr") not in {"password", "google"} or
+            not isinstance(payload.get("sub"), str) or not payload["sub"]):
+            return None
+        return payload
+    except (JWTError, ValueError, TypeError):
         return None

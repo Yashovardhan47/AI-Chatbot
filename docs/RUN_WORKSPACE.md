@@ -105,3 +105,25 @@ Enable Review captured facts before saving in Memory Inbox or Settings. Captured
 facts remain proposals until explicitly approved, and never replace a newer fact
 when approved late. Manual memory additions are explicit saves. Session snapshots
 remain a separate opt-in historical-quote feature.
+
+
+## V7 page and account workflow
+
+- `/` is the project overview; `/tour` is a public, clearly labeled interactive
+  illustration. The tour never supplies an authentication bypass.
+- Sign up or use Google, sign in, and choose review/automatic/manual memory in
+  `/setup`. Those choices are saved in MongoDB account preferences.
+- `/home` is the authenticated workspace. Its composer carries your draft and
+  selected project into a conversation. `/chat` lists actual conversations.
+- `/security` checks the current JWT through `/api/auth/session`. Rotate & verify
+  performs a real cookie rotation followed by protected verification. Linking
+  Google to an existing email account requires that account's current password.
+- Upgrade from v6: sign in again. V7 requires issuer, audience, issued-at, expiry,
+  token ID, session version and method claims. Access tokens remain in memory;
+  the persistent browser marker contains only the account ID. Reload recovery
+  uses the HttpOnly refresh cookie. A network error during refresh does not erase
+  a session; a rejected cookie ends it. Logout clears private UI immediately.
+
+The hosted tour can be inspected without an API. The live authenticated pages
+still require an operational FastAPI/MongoDB deployment. Neither the static Site
+host nor its ChatGPT access gate runs that Python application for you.

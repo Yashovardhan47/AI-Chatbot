@@ -1,14 +1,36 @@
-import {useState} from "react";
-import {Link,useNavigate} from "react-router-dom";
-import {ArrowRight,Eye,EyeOff,Brain,CheckCircle2,ShieldCheck} from "lucide-react";
-import {Brand} from "../components/AppShell";
+import { useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { ArrowRight, Eye, EyeOff } from "lucide-react";
+import AuthLayout from "../components/AuthLayout";
 import GoogleButton from "../components/GoogleButton";
-import ConnectionSettings from "../components/ConnectionSettings";
 import useAuthStore from "../context/authStore";
-import {authAPI} from "../services/api";
-export default function LoginPage(){
- const [name,setName]=useState(''),[email,setEmail]=useState(''),[password,setPassword]=useState(''),[show,setShow]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[success,setSuccess]=useState('');
- const login=useAuthStore(s=>s.login);const navigate=useNavigate();
- async function submit(e){e.preventDefault();setBusy(true);setError('');setSuccess('');try{await login(email,password);navigate('/dashboard',{replace:true});}catch(err){setError(err.response?.data?.detail||'Unable to reach your account service. Check the backend connection.');}finally{setBusy(false);}}
- return <div className="ns-auth-page"><aside className="ns-auth-story"><Link to="/"><Brand light/></Link><div><span className="ns-eyebrow">LESS REPEATING. MORE CONTINUITY.</span><h1>Pick up the thread.<br/><em>Keep the context.</em></h1><p>A private AI workspace that remembers what matters, shows where it came from and lets you change it.</p><div className="ns-auth-evidence"><span><Brain size={16}/>A memory you can inspect</span><blockquote>“I prefer explanations with exact source citations.”</blockquote><div><CheckCircle2 size={14}/>Your words · your decision · your history</div></div></div><footer><ShieldCheck size={15}/>Your conversations and knowledge stay in your own account.</footer></aside><main className="ns-auth-form-area"><div className="ns-auth-mobile-brand"><Link to="/"><Brand/></Link></div><section className="ns-auth-form"><span className="ns-eyebrow">YOUR LASTING AI WORKSPACE</span><h2>Welcome back.</h2><p>SUBWelcome back.</p><GoogleButton onSuccess={()=>navigate('/dashboard',{replace:true})}/><div className="ns-auth-divider"><span>or continue with email</span></div><form onSubmit={submit}><label htmlFor="auth-email">Email address</label><input id="auth-email" type="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} required placeholder="you@example.com"/><div className="ns-label-row"><label htmlFor="auth-password">Password</label><Link to="/forgot-password">Forgot password?</Link></div><div className="ns-password-field"><input id="auth-password" type={show?'text':'password'} autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} minLength={8} required placeholder="At least 8 characters"/><button type="button" aria-label={show?'Hide password':'Show password'} onClick={()=>setShow(v=>!v)}>{show?<EyeOff size={17}/>:<Eye size={17}/>}</button></div>{error&&<p role="alert" className="ns-auth-error">{error}</p>}{success&&<p role="status" className="ns-auth-success">{success} <Link to="/login">Go to sign in →</Link></p>}<button disabled={busy} className="ns-primary">{busy?'Please wait…':'Sign in'}<ArrowRight size={16}/></button></form><p className="ns-auth-switch">New here? <Link to="/register">Create an account</Link></p><div className="ns-auth-foot"><Link to="/">← Project overview</Link><ConnectionSettings compact/></div></section></main></div>;
+import { safeDestination } from "../services/routing";
+
+export default function LoginPage() {
+  const [email, setEmail] = useState(""), [password, setPassword] = useState("");
+  const [show, setShow] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState("");
+  const { login, sessionError } = useAuthStore();
+  const navigate = useNavigate(), location = useLocation();
+  const destination = safeDestination(new URLSearchParams(location.search).get("next"));
+  const complete = () => navigate(destination, { replace: true });
+  async function submit(event) {
+    event.preventDefault(); setBusy(true); setError("");
+    try { await login(email.trim(), password); complete(); }
+    catch (error) { setError(error.response?.data?.detail || "Sign-in could not complete. Check your connection and try again."); }
+    finally { setBusy(false); }
+  }
+  return <AuthLayout title="Welcome back." description="Sign in to continue with your own context.">
+    <GoogleButton onSuccess={complete} />
+    <div className="ns-auth-divider"><span>or continue with email</span></div>
+    <form onSubmit={submit} aria-busy={busy}>
+      <label htmlFor="auth-email">Email address</label>
+      <input id="auth-email" type="email" autoComplete="email" value={email} onChange={event => setEmail(event.target.value)} required placeholder="you@example.com" />
+      <div className="ns-label-row"><label htmlFor="auth-password">Password</label><Link to="/forgot-password">Forgot password?</Link></div>
+      <div className="ns-password-field"><input id="auth-password" type={show ? "text" : "password"} autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} required maxLength={1024} />
+        <button type="button" aria-label={show ? "Hide password" : "Show password"} onClick={() => setShow(value => !value)}>{show ? <EyeOff size={17} /> : <Eye size={17} />}</button></div>
+      {(error || sessionError) && <p role="alert" className="ns-auth-error">{error || sessionError}</p>}
+      <button disabled={busy} className="ns-primary">{busy ? "Signing in…" : "Sign in"}<ArrowRight size={16} /></button>
+    </form>
+    <p className="ns-auth-switch">New here? <Link to={"/register?next=" + encodeURIComponent(destination)}>Create an account</Link></p>
+  </AuthLayout>;
 }

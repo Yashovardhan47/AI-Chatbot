@@ -57,7 +57,10 @@ Checks:
 App routes:
   /                     Public landing page
   /login, /register     Sign in and sign up
-  /dashboard            Live workspace home
+  /home                 Authenticated workspace home
+  /setup                First-time memory choices
+  /security             Server session verification and Google linking
+  /tour                 Public interactive tour with example records
   /chat                 Streaming chat with evidence receipts
   /memory               Memory Studio and historical recall
   /knowledge            Documents, notes and passage-based Q&A
@@ -71,3 +74,6 @@ App routes:
 V6: Memory Inbox, global workspace search (Ctrl/Cmd K), activity, themes and
 real Google/JWT account controls. See docs/RUN_WORKSPACE.md for live hosted
 frontend connection, Google OAuth and cross-site HTTPS cookie configuration.
+
+V7: Sign in again after upgrading. Access JWTs now require issuer, audience and
+issued-at claims and remain in browser memory. See docs/AUTH_VERIFICATION.md.
