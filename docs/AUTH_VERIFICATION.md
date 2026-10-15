@@ -79,3 +79,19 @@ security review and capacity testing before a public production launch.
 Primary implementation references:
 - https://developers.google.com/identity/gsi/web/guides/verify-google-id-token
 - https://datatracker.ietf.org/doc/html/rfc8725
+
+
+## Presentation and activation update
+
+The login and registration pages always show the Google option. If the API or
+Google client is absent, the control is visibly unavailable and links to the
+public `/auth-setup` page. That page separately checks API reachability and the
+server's public client ID, displays the exact frontend origin to register, and
+links to the real sign-in workflow. It does not claim to verify a Google Cloud
+origin registration just because an ID is present.
+
+Configured installations render Google's official GIS button in popup mode.
+Callbacks reject empty credentials, show server rejections inline and preserve the
+requested workspace destination after success. A bounded script-loading timeout
+and retry keep a failed provider script from leaving the page stuck indefinitely.
+The setup page needs no client secret and never stores a signing key in the browser.

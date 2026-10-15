@@ -16,8 +16,8 @@ beforeEach(() => { mocks.state = { user: null, loading: false }; mocks.config.mo
 afterEach(cleanup);
 it("keeps the project overview public and outside the account shell", () => {
   mocks.state.user = { id: "owner", preferences: { onboarding_completed: true } }; open("/");
-  expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("start over");
-  expect(screen.queryByTestId("account-shell")).toBeNull(); expect(screen.getByRole("link", { name: /Open home/ }).getAttribute("href")).toBe("/home");
+  expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("longer memory");
+  expect(screen.queryByTestId("account-shell")).toBeNull(); expect(screen.getAllByRole("link", { name: /Open home/ })[0].getAttribute("href")).toBe("/home");
 });
 it("preserves a protected deep link when requesting sign-in", async () => {
   open("/chat/thread-123?source=memory");

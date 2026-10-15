@@ -61,6 +61,7 @@ App routes:
   /setup                First-time memory choices
   /security             Server session verification and Google linking
   /tour                 Public interactive tour with example records
+  /auth-setup           Google client and API activation diagnostics
   /chat                 Streaming chat with evidence receipts
   /memory               Memory Studio and historical recall
   /knowledge            Documents, notes and passage-based Q&A

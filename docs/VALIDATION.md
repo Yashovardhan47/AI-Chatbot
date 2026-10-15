@@ -17,12 +17,14 @@ synthetic. No live user database, paid model call or real email was used.
   token type, account version, cookie rotation/replay, origin checks and logout
   after access expiry. An API workflow registers, signs in, saves memory choices,
   opens a chat, verifies the session, rotates and logs out.
-- **44 frontend tests passed** with jsdom and Testing Library. Coverage includes
+- **52 frontend tests passed** with jsdom and Testing Library. Coverage includes
   distinct public/home pages, preserved protected destinations, first-use setup,
   safe return URLs, project-scoped home drafts, versioned task completion, tour
   interactions, explicit session verification and rotation, in-memory token
   lifecycle, reload recovery, concurrent refresh, temporary failures and stale
-  response rejection. Existing memory, knowledge, graph and inbox tests pass.
+  response rejection. Existing memory, knowledge, graph and inbox tests pass. New checks cover visible
+  Google unavailability, inline credential rejection, setup diagnostics, the official
+  Google callback returning to a requested document, and the presentation walkthrough.
 - Vite production build passed. Pages are split into lazy chunks.
 - Source whitespace checks passed. The repository's MongoDB service CI is the
   required check for real-database behavior and Compose configuration.
@@ -75,3 +77,15 @@ npm run build
 
 The real-Mongo fixture creates and drops a unique temporary database. Never point
 the test URI at a production database. The GitHub workflow uses MongoDB 7.0.14.
+
+
+## Presentation refresh
+
+The public overview now uses an original code-rendered neural illustration,
+editorial typography, a cream/plum/lavender palette and a four-step memory story.
+Playback starts only on request; reduced-motion styles disable decorative motion.
+The account shell, sign-in pages and tour share that identity. Public feature
+links open specific tour panels, including project-scoped memory connections.
+
+Local validation: 52 frontend tests and the production build passed. The
+presentation makes no new live Google or hosted Python availability claim.

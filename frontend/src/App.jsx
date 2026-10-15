@@ -31,6 +31,7 @@ const SetupPage = lazy(() => import("./pages/SetupPage"));
 const SecurityPage = lazy(() => import("./pages/SecurityPage"));
 const ConversationsPage = lazy(() => import("./pages/ConversationsPage"));
 const TourPage = lazy(() => import("./pages/TourPage"));
+const AuthSetupPage = lazy(() => import("./pages/AuthSetupPage"));
 
 // Instant, lightweight fallback — shown for the few ms a lazy chunk takes
 // to load, so switching pages never *looks* frozen.
@@ -64,6 +65,7 @@ export function AppRoutes() {
     <Route path="/" element={<LandingPage />} />
     <Route path="/welcome" element={<Navigate to="/" replace />} />
     <Route path="/tour" element={<TourPage />} />
+    <Route path="/auth-setup" element={<AuthSetupPage />} />
     <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
     <Route path="/register" element={<GuestRoute><RegisterPage /></GuestRoute>} />
     <Route path="/verify-email/:token" element={<VerifyEmail />} />
