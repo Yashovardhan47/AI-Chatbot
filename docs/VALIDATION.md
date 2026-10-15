@@ -89,3 +89,15 @@ links open specific tour panels, including project-scoped memory connections.
 
 Local validation: 52 frontend tests and the production build passed. The
 presentation makes no new live Google or hosted Python availability claim.
+
+
+[Presentation refresh CI run 38685829644](https://github.com/Yashovardhan47/AI-Chatbot/actions/runs/38685829644)
+passed for code commit `eec09b0249e51435e9aef4e82d167ff3cb1d6361`: 97 backend tests against real MongoDB,
+52 frontend tests, production build and Compose configuration validation.
+The matching static-host source `bbd410917383d0ff3f563de8d24b3d1ca37886d0` passed all 52 frontend
+tests and was successfully published to the existing Site.
+
+Google activation diagnostics are available at
+https://neurosense-ai-workspace-demo.kummarayashovardhan.chatgpt.site/#/auth-setup.
+The hosted API and Google client ID remain unconfigured; the page reports that
+state explicitly. No live provider login is claimed by these automated checks.
