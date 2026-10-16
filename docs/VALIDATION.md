@@ -1,7 +1,41 @@
 # NeuroSense validation
 
-Validation date: 2026-10-15. All test accounts, messages and signing keys are
+Validation date: 2026-10-16. All test accounts, messages and signing keys are
 synthetic. No live user database, paid model call or real email was used.
+
+## Context Lab workflow integration
+
+Implemented experimental workflows now include exact signed change previews,
+owner-confirmed alternative claim support, evidence-linked commitments,
+current-evidence replay, reviewed answer notes/task edits, recall decision
+receipts and an explicit contradiction/stable-slot clarification gate in chat.
+See [CONTEXT_LAB.md](CONTEXT_LAB.md) for behavior, limits and API paths.
+
+Backend validation: **123 tests passed** with mongomock-motor. This includes
+signed-preview binding, alternative/joint support, uncertain receipt impact,
+versioned task repair and repeat-call idempotence, revocation/expiry, concurrent
+target edits, privacy toggles, archived projects, clarification-before-provider,
+selected-context prompts, real application JWT access, account/memory erasure,
+withholding an answer changed during generation and rejecting clarification
+questions as task/claim sources. GitHub CI with real MongoDB is the deployment
+verification for these checks.
+
+Frontend validation: **78 tests passed** and the Vite production build passed.
+The frontend checks cover preview-before-commit, exact preview receipts, stale
+approval rejection, scope/budget diagnostics, explicit clarification choices,
+protected return destinations, source-linked task writes, support groups,
+modal focus/draft retention, duplicate send prevention and the public tour.
+
+The authored 15-case support-logic comparison is saved in
+`backend/evaluation/context-results.json`. It is a synthetic regression aid;
+it is not a public benchmark, model-quality result or novelty evidence.
+
+No deployed Python API, Google client ID or live browser Google flow is provided
+by this integration. Real provider verification and browser visual/end-to-end QA
+remain operational checks. References/tombstone IDs are retained for owner-only
+impact review until memory clear or workspace erasure; copied memory text is not
+stored in replay/review records. No causal-inference, full-answer regeneration,
+model-unlearning or multi-document crash-atomicity guarantee is claimed.
 
 ## Typography and motion refresh
 

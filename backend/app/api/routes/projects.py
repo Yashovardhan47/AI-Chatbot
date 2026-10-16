@@ -6,6 +6,8 @@ from app.middleware.auth_dep import get_current_user
 from app.models.user import User
 from app.models.project import Project
 from app.models.chat import Chat
+from app.services.memory_guard import memory_write_guard, invalidate_captures
+from app.services.workspace_write import require_actor
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -67,9 +69,11 @@ async def update_project(project_id: str, body: ProjectUpdate, current_user: Use
 
 @router.delete("/{project_id}")
 async def delete_project(project_id: str, current_user: User = Depends(get_current_user)):
-    project = await Project.get(project_id)
-    if not project or project.user_id != str(current_user.id):
-        raise HTTPException(status_code=404, detail="Project not found")
-    project.is_active = False
-    await project.save()
+    async with memory_write_guard(str(current_user.id)):
+        await require_actor(str(current_user.id), current_user.auth_version)
+        project = await Project.get(project_id)
+        if not project or project.user_id != str(current_user.id):
+            raise HTTPException(status_code=404, detail="Project not found")
+        await project.set({"is_active": False})
+        await invalidate_captures(str(current_user.id))
     return {"message": "Project deleted"}

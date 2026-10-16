@@ -8,13 +8,15 @@ from app.models.user import User
 from app.models.chat import Chat
 from app.models.memory import Memory
 from app.models.project import Project
+from app.models.context_lab import ContextChange, ClaimSupport, ContextReplay, AnswerReview
 from app.models.workspace import KnowledgeDocument, MemoryEdge, MemoryFeedback, SessionDigest, Commitment, Notification, AuthSession, MemoryProposal
 from app.services.memory_guard import memory_write_guard, invalidate_captures
 from app.services.continuity_service import public_record
 
 router = APIRouter(prefix="/api/account", tags=["account data controls"])
 DATA_MODELS = {"chats": Chat, "memories": Memory, "projects": Project, "documents": KnowledgeDocument,
-    "relationships": MemoryEdge, "feedback": MemoryFeedback, "session_snapshots": SessionDigest, "commitments": Commitment, "notifications": Notification, "memory_proposals": MemoryProposal}
+    "relationships": MemoryEdge, "feedback": MemoryFeedback, "session_snapshots": SessionDigest, "commitments": Commitment, "notifications": Notification, "memory_proposals": MemoryProposal,
+    "context_changes": ContextChange, "claim_support": ClaimSupport, "context_replays": ContextReplay, "answer_reviews": AnswerReview}
 
 
 class EraseInput(BaseModel):

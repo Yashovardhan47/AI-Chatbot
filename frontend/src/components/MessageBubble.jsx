@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Copy, Check, Lightbulb, Volume2, ThumbsUp, ThumbsDown } from "lucide-react";
 import AIAvatar from "./AIAvatar";
+import AnswerTools from "./AnswerTools";
 import { Link } from "react-router-dom";
 import api from "../services/api";
 import toast from "react-hot-toast";
@@ -61,7 +62,7 @@ function ConfBadge({ value }) {
   return <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${cls}`}>{value}% confident</span>;
 }
 
-export default function MessageBubble({ message, chatId, isLast, onSpeak }) {
+export default function MessageBubble({ message, chatId, projectId, isLast, onSpeak, onChooseContext, canChooseContext = true }) {
   const isUser = message.role === "user";
   const [copied, setCopied] = useState(false);
   const [feedback, setFeedback] = useState(null);
@@ -95,6 +96,7 @@ export default function MessageBubble({ message, chatId, isLast, onSpeak }) {
         <div className={`rounded-2xl rounded-tl-sm px-4 py-3 bg-gray-900/50 border border-gray-800/50 backdrop-blur`}>
           {renderContent(message.content)}
         </div>
+        {message.clarification && <section className="ns-chat-clarification"><strong>Choose context for this turn</strong><p>Your choice applies to this question. Saved memories stay as they are.</p>{message.clarification.alternatives.map(item => <button key={item.id} disabled={!canChooseContext} onClick={() => onChooseContext?.({ query: message.clarification.query, choices: [...(message.clarification.selected || []), { id: item.id, version: item.version }] })}><span>{item.fact}<small>Memory version {item.version}</small></span><Check size={14} /></button>)}{!message.clarification.alternatives.length && <p>Those sources changed. Ask the question again to inspect current context.</p>}</section>}
         {!message.streaming && (
           <div className="flex items-center gap-1 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
             <button onClick={() => { navigator.clipboard.writeText(message.content); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
@@ -106,6 +108,7 @@ export default function MessageBubble({ message, chatId, isLast, onSpeak }) {
             <button aria-label="Unhelpful answer" onClick={() => giveFeedback("down")} className={`p-1.5 rounded-lg transition-colors ${feedback === "down" ? "text-red-400" : "text-gray-700 hover:text-gray-300 hover:bg-gray-800"}`}><ThumbsDown size={12} /></button>
           </div>
         )}
+        {!message.streaming && chatId && !message.private && !message.clarification && !message.memory_receipt?.disabled && <AnswerTools message={message} chatId={chatId} projectId={projectId} />}
         {!message.streaming && (message.confidence != null || message.reasoning || message.sources) && (
           <div className="mt-2 flex flex-col gap-1">
             <div className="flex items-center gap-2 flex-wrap">

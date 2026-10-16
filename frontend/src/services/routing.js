@@ -1,4 +1,4 @@
-const privatePaths = /^\/(home|chat|projects|agents|settings|security|profile|memory|knowledge|continuity|review|memory-graph)(\/|$)/;
+const privatePaths = /^\/(home|chat|projects|agents|settings|security|profile|memory|knowledge|continuity|review|memory-graph|context-lab)(\/|$)/;
 export function safeDestination(value) {
   if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//") || value.includes("\\")) return "/home";
   try {

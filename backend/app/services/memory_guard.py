@@ -11,7 +11,7 @@ async def memory_epoch(user_id: str) -> int:
     collection = MemoryState.get_motor_collection()
     try:
         await collection.update_one({"user_id": user_id}, {"$setOnInsert": {
-            "user_id": user_id, "epoch": 0, "lease_token": "", "lease_until": datetime(1970, 1, 1)}}, upsert=True)
+            "user_id": user_id, "epoch": 0, "context_revision": 0, "lease_token": "", "lease_until": datetime(1970, 1, 1)}}, upsert=True)
     except DuplicateKeyError:
         pass
     state = await collection.find_one({"user_id": user_id})
@@ -49,4 +49,16 @@ async def memory_write_guard(user_id: str):
 
 async def invalidate_captures(user_id: str):
     """Called inside the owner lease after delete/clear/correction."""
-    await MemoryState.get_motor_collection().update_one({"user_id": user_id}, {"$inc": {"epoch": 1}})
+    await MemoryState.get_motor_collection().update_one({"user_id": user_id}, {"$inc": {"epoch": 1, "context_revision": 1}})
+
+
+async def invalidate_context(user_id: str):
+    """Advance replay snapshots without cancelling unrelated capture proposals."""
+    await memory_epoch(user_id)
+    await MemoryState.get_motor_collection().update_one({"user_id": user_id}, {"$inc": {"context_revision": 1}})
+
+
+async def context_revision(user_id: str) -> int:
+    await memory_epoch(user_id)
+    state = await MemoryState.get_motor_collection().find_one({"user_id": user_id})
+    return state.get("context_revision", 0)

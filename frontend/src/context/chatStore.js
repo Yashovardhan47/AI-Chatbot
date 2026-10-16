@@ -108,7 +108,7 @@ const useChatStore = create((set, get) => ({
           messages: [...s.messages, {
             role: "assistant", content: meta.content ?? s.streamBuffer,
             confidence: meta.confidence, reasoning: meta.reasoning,
-            sources: meta.sources, memory_receipt: meta.memory_receipt, id: meta.message_id || Date.now(),
+            sources: meta.sources, memory_receipt: meta.memory_receipt, clarification: meta.clarification, id: meta.message_id || Date.now(),
           }],
           streaming: false, streamBuffer: "",
           chats: s.chats.map(c => c.id === s.activeChat?.id
@@ -141,7 +141,8 @@ const useChatStore = create((set, get) => ({
     set({ socket: ws });
   },
 
-  sendMessage: ({ content, attachments = [], mode = "auto", webSearch = false, model = "claude-sonnet-4-6", privateMode = false }) => {
+  sendMessage: ({ content, attachments = [], mode = "auto", webSearch = false, model = "claude-sonnet-4-6", privateMode = false, contextChoices = [] }) => {
+    if (get().streaming) return false;
     const { socket } = get();
     if (!socket || socket.readyState !== WebSocket.OPEN) {
       toast.error("Chat is connecting. Please try again in a moment.");
@@ -149,7 +150,7 @@ const useChatStore = create((set, get) => ({
     }
     const userMsg = { role: "user", content, attachments, id: Date.now(), created_at: new Date() };
     set(s => ({ messages: [...s.messages, userMsg], streaming: true, streamBuffer: "" }));
-    socket.send(JSON.stringify({ type: "message", content, attachments, mode, web_search: webSearch, model, private: privateMode }));
+    socket.send(JSON.stringify({ type: "message", content, attachments, mode, web_search: webSearch, model, private: privateMode, context_choices: contextChoices }));
     return true;
   },
 

@@ -37,6 +37,7 @@ export default function MemoryPage() {
   const [recallScope, setRecallScope] = useState("");
   const [asOf, setAsOf] = useState("");
   const [recallResult, setRecallResult] = useState(null);
+  const [lastChange, setLastChange] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -72,14 +73,14 @@ export default function MemoryPage() {
     setBusy(true);
     try {
       const { data } = await memoryAPI.update(memory.id, { ...changes, expected_version: memory.version });
-      setSelected(data.memory); setEdit(null); await refresh(); toast.success("Memory updated");
+      setSelected(data.memory); setEdit(null); if (data.change_id) setLastChange(data.change_id); await refresh(); toast.success("Memory updated");
     } catch (err) { toast.error(err.response?.data?.detail || "Unable to update memory"); await load(); }
     finally { setBusy(false); }
   }
   async function remove(memory) {
     if (!window.confirm("Delete this memory and every revision? Its original chat transcript remains saved.")) return;
     setBusy(true);
-    try { await memoryAPI.delete(memory.id); if (selected?.id === memory.id) setSelected(null); await refresh(); toast.success("Memory deleted"); }
+    try { const { data } = await memoryAPI.delete(memory.id); if (data?.change_id) setLastChange(data.change_id); if (selected?.id === memory.id) setSelected(null); await refresh(); toast.success("Memory deleted"); }
     catch { toast.error("Unable to delete memory"); }
     finally { setBusy(false); }
   }
@@ -108,6 +109,7 @@ export default function MemoryPage() {
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8">
+        {lastChange && <div className="ns-lab-inline-notice" role="status">Memory changed.<Link to={`/context-lab?change=${lastChange}`}>Review affected answers and commitments →</Link></div>}
         <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
           <div>
             <Link to="/chat" className="inline-flex items-center gap-2 text-xs text-gray-400 hover:text-white mb-5"><ArrowLeft size={13} /> Back to chat</Link>
@@ -162,7 +164,7 @@ export default function MemoryPage() {
 
             <aside className="rounded-2xl border border-gray-800 bg-gray-900/30 p-5 h-fit lg:sticky lg:top-6">
               {selected ? <>
-                <div className="flex justify-between items-center mb-4"><h2 className="font-medium text-sm">Evidence & history</h2><button aria-label="Close memory details" onClick={() => setSelected(null)} className="text-gray-500"><X size={16} /></button></div>
+                <Link className="ns-lab-memory-link" to={`/context-lab?memory=${selected.id}`}>Preview a correction and its impact →</Link><div className="flex justify-between items-center mb-4"><h2 className="font-medium text-sm">Evidence & history</h2><button aria-label="Close memory details" onClick={() => setSelected(null)} className="text-gray-500"><X size={16} /></button></div>
                 {edit !== null ? <form onSubmit={event => { event.preventDefault(); update(selected, { fact: edit }); }}><textarea aria-label="Correct memory" value={edit} onChange={event => setEdit(event.target.value)} maxLength={1000} rows={4} className={inputClass} /><div className="flex gap-3 mt-3"><button disabled={busy || edit.trim().length < 2} className="text-xs text-violet-300">Save correction</button><button type="button" onClick={() => setEdit(null)} className="text-xs text-gray-500">Cancel</button></div></form> : <><p className="text-sm text-gray-200 leading-relaxed">{selected.fact}</p><button onClick={() => setEdit(selected.fact)} className="text-xs text-violet-300 mt-3">Correct this fact</button></>}
                 {selected.provenance === "legacy" && !selected.confirmed && <button disabled={busy} onClick={() => update(selected, { confirmed: true })} className="block text-xs bg-violet-600 rounded-lg px-3 py-2 mt-4">Confirm for recall</button>}
                 <button className="block text-xs text-emerald-300 mt-4" onClick={async () => { const value = prompt("What is your next step for this memory?", ""); if (!value?.trim()) return; try { await continuityAPI.create({ title: value.trim(), notes: selected.fact, source_memory_id: selected.id, project_id: selected.project_id || null }); toast.success("Commitment saved in Continuity"); } catch { toast.error("Unable to create commitment"); } }}>Turn this memory into a commitment</button>

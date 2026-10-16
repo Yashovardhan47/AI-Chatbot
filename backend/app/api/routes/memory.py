@@ -15,6 +15,9 @@ from app.services.embeddings import encode_texts
 from app.services.memory_logic import Candidate, fingerprint, safe_fact, tokens, utc_naive, observation_order
 from app.services.memory_service import recall, serialize, upsert_memory
 from app.services.memory_guard import memory_write_guard, invalidate_captures
+from app.services.workspace_write import require_actor
+from app.models.context_lab import ContextChange, ClaimSupport, ContextReplay, AnswerReview
+from app.services.context_service import record_change
 
 router = APIRouter(prefix="/api/memory", tags=["NeuroSense memory"])
 
@@ -117,8 +120,9 @@ async def create_memory(body: MemoryInput, current_user: User = Depends(get_curr
 async def clear_memories(current_user: User = Depends(get_current_user)):
     # Hard deletion includes all revisions and any old inactive records.
     async with memory_write_guard(str(current_user.id)):
+        await require_actor(str(current_user.id), current_user.auth_version)
         await Memory.find({"user_id": str(current_user.id)}).delete()
-        for model in (MemoryEdge, MemoryFeedback, SessionDigest, MemoryProposal):
+        for model in (MemoryEdge, MemoryFeedback, SessionDigest, MemoryProposal, ContextChange, ClaimSupport, ContextReplay, AnswerReview):
             await model.find({"user_id": str(current_user.id)}).delete()
         await invalidate_captures(str(current_user.id))
     return {"message": "All memory facts and revisions deleted. Chat transcripts are separate."}
@@ -160,24 +164,36 @@ async def _update_memory(memory_id: str, body: MemoryUpdate, current_user: User)
     if not result.matched_count:
         raise HTTPException(409, "Memory changed; reload before editing")
     await invalidate_captures(str(current_user.id))
-    return {"memory": serialize(await owned_memory(memory_id, str(current_user.id)))}
+    updated = await owned_memory(memory_id, str(current_user.id))
+    change = await record_change(updated, memory.version) if body.fact is not None or body.confirmed is False else None
+    return {"memory": serialize(updated), "change_id": str(change.id) if change else None}
 
 
 @router.patch("/{memory_id}")
 async def update_memory(memory_id: str, body: MemoryUpdate, current_user: User = Depends(get_current_user)):
     async with memory_write_guard(str(current_user.id)):
-        return await _update_memory(memory_id, body, current_user)
+        fresh = await require_actor(str(current_user.id), current_user.auth_version)
+        return await _update_memory(memory_id, body, fresh)
+
+
+async def _delete_memory(memory_id, current_user, expected_version=None):
+    memory = await owned_memory(memory_id, str(current_user.id))
+    memory_id = str(memory.id)
+    if expected_version is not None and memory.version != expected_version:
+        raise HTTPException(409, "Memory changed; reload before removing it")
+    await memory.delete()
+    await MemoryProposal.find({"user_id": str(current_user.id), "project_id": memory.project_id, "candidate.slot": memory.slot, "status": "pending"}).delete()
+    await MemoryEdge.find({"user_id": str(current_user.id), "$or": [{"source_id": memory_id}, {"target_id": memory_id}]}).delete()
+    await invalidate_captures(str(current_user.id))
+    change = await record_change(memory, memory.version, "revoked")
+    return {"message": "Memory and all its revisions deleted. Chat transcripts are separate.", "change_id": str(change.id)}
 
 
 @router.delete("/{memory_id}")
-async def delete_memory(memory_id: str, current_user: User = Depends(get_current_user)):
+async def delete_memory(memory_id: str, expected_version: int | None = Query(default=None, ge=1), current_user: User = Depends(get_current_user)):
     async with memory_write_guard(str(current_user.id)):
-        memory = await owned_memory(memory_id, str(current_user.id))
-        await memory.delete()
-        await MemoryProposal.find({"user_id": str(current_user.id), "project_id": memory.project_id, "candidate.slot": memory.slot, "status": "pending"}).delete()
-        await MemoryEdge.find({"user_id": str(current_user.id), "$or": [{"source_id": memory_id}, {"target_id": memory_id}]}).delete()
-        await invalidate_captures(str(current_user.id))
-    return {"message": "Memory and all its revisions deleted. Chat transcripts are separate."}
+        fresh = await require_actor(str(current_user.id), current_user.auth_version)
+        return await _delete_memory(memory_id, fresh, expected_version)
 
 
 @router.post("/index")

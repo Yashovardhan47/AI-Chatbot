@@ -17,6 +17,7 @@ from app.api.routes.graph import router as graph_router
 from app.api.routes.continuity import router as continuity_router
 from app.api.routes.account import router as account_router
 from app.api.routes.workspace import router as workspace_router
+from app.api.routes.context_lab import router as context_router
 
 
 @asynccontextmanager
@@ -59,6 +60,7 @@ app.include_router(graph_router)
 app.include_router(continuity_router)
 app.include_router(account_router)
 app.include_router(workspace_router)
+app.include_router(context_router)
 
 
 @app.get("/api/health")

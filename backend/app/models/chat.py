@@ -23,6 +23,7 @@ class Message(BaseModel):
     attachments: List[Attachment] = Field(default_factory=list)
     tokens_used: int = 0
     memory_receipt: Optional[dict] = None
+    clarification: Optional[dict] = None
     private: bool = False
     created_at:  datetime = Field(default_factory=datetime.utcnow)
 

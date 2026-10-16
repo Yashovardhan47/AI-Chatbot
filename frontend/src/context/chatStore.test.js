@@ -24,6 +24,16 @@ beforeEach(() => {
 });
 
 describe("chat memory lifecycle", () => {
+  it("preserves clarification options and sends only explicit versioned context choices", () => {
+    useChatStore.getState()._connectSocket("chat");
+    const socket = mocks.sockets[0];
+    const clarification = { query: "Which backend?", alternatives: [{ id: "memory", version: 2, fact: "Use FastAPI" }], selected: [] };
+    socket.handlers.onDone({ content: "Choose context", message_id: "clarification", clarification });
+    expect(useChatStore.getState().messages[0].clarification).toEqual(clarification);
+    expect(useChatStore.getState().sendMessage({ content: clarification.query, contextChoices: [{ id: "memory", version: 2 }] })).toBe(true);
+    expect(JSON.parse(socket.send.mock.calls[0][0]).context_choices).toEqual([{ id: "memory", version: 2 }]);
+    expect(useChatStore.getState().sendMessage({ content: "A duplicate click" })).toBe(false);
+  });
   it("does not report a message as sent before the socket is ready", () => {
     expect(useChatStore.getState().sendMessage({ content: "Keep this input" })).toBe(false);
     expect(useChatStore.getState().messages).toEqual([]);

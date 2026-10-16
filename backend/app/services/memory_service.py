@@ -12,7 +12,7 @@ from app.core.logger import logger
 from app.models.memory import Memory
 from app.models.user import User
 from app.models.workspace import MemoryProposal
-from app.services.memory_guard import memory_epoch, memory_write_guard, invalidate_captures
+from app.services.memory_guard import memory_epoch, memory_write_guard, invalidate_captures, invalidate_context
 from app.services.embeddings import hybrid_rank
 from app.services.graph_service import augment_graph, apply_feedback
 from app.services.workspace_write import require_actor
@@ -87,6 +87,7 @@ async def _write_memory(user_id: str, candidate: Candidate, project_id: Optional
                             created_at=now, updated_at=now, valid_from=observed_at, observed_us=observed_us)
             try:
                 await memory.insert()
+                await invalidate_context(user_id)
                 return memory, "created"
             except DuplicateKeyError:
                 continue
@@ -116,7 +117,11 @@ async def _write_memory(user_id: str, candidate: Candidate, project_id: Optional
                       "keywords": sorted(tokens(candidate.fact + " " + candidate.slot)), "version": version + 1},
              "$push": {"revisions": revision}}, return_document=ReturnDocument.AFTER)
         if updated:
-            return Memory.model_validate(updated), "updated"
+            memory = Memory.model_validate(updated)
+            from app.services.context_service import record_change
+            await record_change(memory, version)
+            await invalidate_context(user_id)
+            return memory, "updated"
     raise RuntimeError("Memory changed concurrently; please retry")
 
 
@@ -126,6 +131,8 @@ async def upsert_memory(user_id: str, candidate: Candidate, project_id: Optional
                         expires_at: Optional[datetime] = None, auth_version: Optional[int] = None) -> tuple[Memory, str]:
     async with memory_write_guard(user_id):
         await require_actor(user_id, auth_version)
+        from app.services.context_service import scope_allowed
+        await scope_allowed(user_id, project_id)
         memory, action = await _write_memory(user_id, candidate, project_id, source_chat_id, source_message_id,
                                             provenance, confirmed, expires_at)
         if provenance == "user" and action != "unchanged":
@@ -148,6 +155,12 @@ async def capture_turn(user_id: str, text: str, chat_id: str, message_id: str,
         user = await User.get(user_id)
         if not user or not user.is_active or not user.preferences.memory_enabled or (auth_version is not None and user.auth_version != auth_version):
             return []
+        from app.services.context_service import scope_allowed
+        from fastapi import HTTPException
+        try:
+            await scope_allowed(user_id, project_id)
+        except HTTPException:
+            return []
         for candidate in candidates:
             if not (auto_capture and user.preferences.memory_auto_capture) and not candidate.explicit:
                 continue
@@ -165,9 +178,7 @@ async def capture_turn(user_id: str, text: str, chat_id: str, message_id: str,
     return result
 
 
-async def recall(user_id: str, query: str, project_id: Optional[str] = None,
-                 budget: Optional[int] = None, limit: Optional[int] = None,
-                 as_of: Optional[datetime] = None) -> dict:
+async def recall_ranking(user_id: str, query: str, project_id: Optional[str] = None, as_of=None):
     # Full owner/scope scan keeps facts older than the former 50-entry cutoff
     # searchable. See design doc for the indexed/vector scaling roadmap.
     records = [serialize(m) for m in await Memory.find({
@@ -176,6 +187,26 @@ async def recall(user_id: str, query: str, project_id: Optional[str] = None,
     eligible = rank_memories(records, "what do you remember about me?", project_id, now=as_of, as_of=as_of)
     ranked, mode = await hybrid_rank(eligible, query, rank_memories(eligible, query, project_id, now=as_of))
     ranked = await apply_feedback(user_id, await augment_graph(user_id, ranked, eligible))
+    return ranked, mode
+
+
+async def recall(user_id: str, query: str, project_id: Optional[str] = None,
+                 budget: Optional[int] = None, limit: Optional[int] = None,
+                 as_of: Optional[datetime] = None, exclude_ids=None, prefer_refs=None) -> dict:
+    ranked, mode = await recall_ranking(user_id, query, project_id, as_of)
+    if exclude_ids:
+        ranked = [record for record in ranked if record["id"] not in exclude_ids]
+    if prefer_refs:
+        from app.services.context_logic import eligible
+        from fastapi import HTTPException
+        preferred = []
+        for ref in prefer_refs:
+            memory = await Memory.get(ref["id"])
+            if not memory or memory.user_id != user_id or not eligible(memory, project_id) or memory.version != ref["version"]:
+                raise HTTPException(409, "The selected context changed. Ask again.")
+            preferred.append({**serialize(memory), "score": 1.0, "reason": "Explicitly chosen for this turn"})
+        ids = {record["id"] for record in preferred}
+        ranked = preferred + [record for record in ranked if record["id"] not in ids]
     context, used = pack_context(ranked, budget=budget if budget is not None else settings.MEMORY_CONTEXT_CHARS,
                                 limit=limit if limit is not None else settings.MEMORY_MAX_RESULTS,
                                 as_of=as_of, include_history=bool(re.search(r"\b(previous|before|earlier|used to|history|past)\b", query, re.I)))
@@ -198,5 +229,6 @@ def prompt_context(result: dict) -> str:
 
 def receipt_references(result: dict) -> dict:
     # Persist references only; deleted fact/quote copies cannot linger in receipts.
-    return {k: v for k, v in result.items() if k not in {"context", "used"}} | {
+    return {k: v for k, v in result.items() if k not in {"context", "used", "clarification"}} | {
+        "clarification_required": bool(result.get("clarification")),
         "used": [{k: v for k, v in item.items() if k not in {"fact", "source_quote"}} for item in result["used"]]}

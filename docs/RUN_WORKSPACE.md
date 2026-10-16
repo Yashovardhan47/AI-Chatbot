@@ -127,3 +127,19 @@ remain a separate opt-in historical-quote feature.
 The hosted tour can be inspected without an API. The live authenticated pages
 still require an operational FastAPI/MongoDB deployment. Neither the static Site
 host nor its ChatGPT access gate runs that Python application for you.
+
+
+## Context Lab workflow
+
+After sign-in and first-use memory setup, open `/context-lab` from home or the
+workspace navigation. Create a memory and a conversation, track exact claim
+support or save an evidence-linked commitment, then preview a correction from
+Memory Studio. Apply the exact preview, replay the recorded impact and explicitly
+approve the evidence note or task edit. Recall diagnostics and decision
+clarification are adjacent tabs. No new external dependency or paid model is
+required for these evidence-review operations. See CONTEXT_LAB.md for permission
+checks, reference retention, scan limits and the distinction from full AI answer
+regeneration.
+
+The public `/#/tour?view=context` panel is an illustrative workflow. Real account
+data uses the Python/MongoDB application and its configured provider services.

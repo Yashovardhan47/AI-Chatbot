@@ -122,6 +122,18 @@ export const continuityAPI = {
   pinSession: id => api.post(`/continuity/sessions/${id}`), deleteSession: id => api.delete(`/continuity/sessions/${id}`),
   notifications: () => api.get("/continuity/notifications"), read: id => api.patch(`/continuity/notifications/${id}/read`),
 };
+export const contextAPI = {
+  changes: params => api.get("/context/changes", { params }),
+  impact: (id, params) => api.get(`/context/changes/${id}`, { params }),
+  preview: (body, params) => api.post("/context/preview", body, { params }),
+  commit: body => api.post("/context/changes", body),
+  replay: body => api.post("/context/replays", body),
+  apply: (id, body = {}) => api.post(`/context/replays/${id}/apply`, body),
+  answer: (chat, message) => api.get(`/context/answers/${chat}/${message}`),
+  support: body => api.post("/context/support", body),
+  audit: body => api.post("/context/recall-audit", body),
+  clarify: body => api.post("/context/clarify", body),
+};
 export const accountAPI = { export: () => api.get("/account/export", { responseType: "blob" }),
   erase: confirmation => api.delete("/account/data", { data: { confirmation } }) };
 export const workspaceAPI = {

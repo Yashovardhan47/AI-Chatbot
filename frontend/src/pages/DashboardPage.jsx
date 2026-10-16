@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowUpRight, ArrowUp, Brain, BookOpen, CalendarCheck, MessageSquare, Inbox, ShieldCheck, Plus, ArrowRight, Sparkles, Folder, Check, Circle } from "lucide-react";
+import { ArrowUpRight, ArrowUp, Brain, BookOpen, CalendarCheck, MessageSquare, Inbox, GitBranch, ShieldCheck, Plus, ArrowRight, Sparkles, Folder, Check, Circle } from "lucide-react";
 import WorkspaceShell from "../components/WorkspaceShell";
 import useAuthStore from "../context/authStore";
 import useChatStore from "../context/chatStore";
@@ -60,6 +60,7 @@ export default function HomePage() {
         <div className="ns-home-metrics" aria-busy={loading}>{[[Brain, "Memories", counts.memories, "/memory"], [BookOpen, "Sources", counts.documents, "/knowledge"], [CalendarCheck, "Open steps", counts.pending_tasks, "/continuity"]].map(([Icon, label, value, path]) => <Link to={path} key={label}><Icon size={17} /><strong>{loading ? "—" : value ?? "—"}</strong><span>{label}</span><ArrowUpRight size={13} /></Link>)}</div>
       </div>
       <aside className="ns-home-rail">
+        <section className="ns-home-context"><GitBranch size={20} /><div><h2>When context changes.</h2><p>Preview corrections, inspect recorded impact and approve evidence updates.{overview?.context_changes != null && ` ${overview.context_changes} recorded changes.`}</p><Link to="/context-lab">Open Context Lab<ArrowUpRight size={13} /></Link></div></section>
         <section className="ns-inbox-card"><div className="ns-panel-heading"><span className="ns-spark"><Inbox size={19} /></span><span className="ns-chip">{review ?? "—"} pending</span></div><h2>Keep what matters.</h2><p>{review > 0 ? "New facts are waiting for your decision. Check the original words before they enter recall." : "Your memory inbox is clear. Proposed facts appear here when review is enabled."}</p><Link to="/review">Open memory inbox<ArrowRight size={16} /></Link></section>
         <section className="ns-panel ns-follow-through"><div className="ns-panel-heading"><div><span className="ns-eyebrow">FOLLOW THROUGH</span><h2>Your next steps</h2></div><CalendarCheck size={18} /></div>
           {overview?.tasks?.slice(0, 4).map(task => <div className="ns-home-task" key={task.id}><button aria-label={`Complete ${task.title}`} disabled={completing === task.id} onClick={() => complete(task)}>{completing === task.id ? <Check size={17} /> : <Circle size={17} />}</button><Link to="/continuity"><strong>{task.title}</strong><small>{task.due_at ? new Date(task.due_at.endsWith("Z") ? task.due_at : task.due_at + "Z").toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "No due date"}</small></Link></div>)}

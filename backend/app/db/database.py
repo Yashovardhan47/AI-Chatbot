@@ -5,6 +5,7 @@ from app.models.user    import User
 from app.models.chat    import Chat
 from app.models.memory  import Memory
 from app.models.memory_state import MemoryState
+from app.models.context_lab import ContextChange, ClaimSupport, ContextReplay, AnswerReview
 from app.models.project import Project
 from app.models.workspace import (KnowledgeDocument, MemoryEdge, MemoryFeedback, SessionDigest,
                                   Commitment, Notification, AuthSession, TokenRevocation, MemoryProposal)
@@ -14,7 +15,8 @@ from app.core.logger import logger
 _redis_client = None
 _mongo_client = None
 DOCUMENT_MODELS = [User, Chat, Memory, MemoryState, Project, KnowledgeDocument, MemoryEdge,
-                   MemoryFeedback, SessionDigest, Commitment, Notification, AuthSession, TokenRevocation, MemoryProposal]
+                   MemoryFeedback, SessionDigest, Commitment, Notification, AuthSession, TokenRevocation, MemoryProposal,
+                   ContextChange, ClaimSupport, ContextReplay, AnswerReview]
 
 
 async def connect_db():

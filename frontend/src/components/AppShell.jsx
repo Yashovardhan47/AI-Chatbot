@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
-import { Brain, LayoutDashboard, MessageSquare, BookOpen, Network, CalendarCheck, FolderKanban, Bot, Settings, Search, Sun, Moon, Menu, X, ArrowUpRight, LogOut, Inbox, ShieldCheck, Plus } from "lucide-react";
+import { Brain, LayoutDashboard, MessageSquare, BookOpen, Network, CalendarCheck, FolderKanban, Bot, Settings, Search, Sun, Moon, Menu, X, ArrowUpRight, LogOut, Inbox, ShieldCheck, Plus, GitBranch } from "lucide-react";
 import useAuthStore from "../context/authStore";
 import useChatStore from "../context/chatStore";
 import useProjectStore from "../context/projectStore";
 import { workspaceAPI } from "../services/api";
 import {FrameContext} from "../context/frameContext";
 import MotionControl from "../motion/MotionControl";
-const navigation=[['/home','Home',LayoutDashboard],['/chat','Conversations',MessageSquare],['/memory','Memory Studio',Brain],['/review','Memory inbox',Inbox],['/knowledge','Knowledge',BookOpen],['/memory-graph','Connections',Network],['/continuity','Continuity',CalendarCheck],['/projects','Projects',FolderKanban],['/agents','AI workflows',Bot],['/security','Account security',ShieldCheck]];
+const navigation=[['/home','Home',LayoutDashboard],['/chat','Conversations',MessageSquare],['/memory','Memory Studio',Brain],['/review','Memory inbox',Inbox],['/context-lab','Context Lab',GitBranch],['/knowledge','Knowledge',BookOpen],['/memory-graph','Connections',Network],['/continuity','Continuity',CalendarCheck],['/projects','Projects',FolderKanban],['/agents','AI workflows',Bot],['/security','Account security',ShieldCheck]];
 
 export function Brand({light=false}){return <span className={`ns-brand ${light?'on-dark':''}`}><span className="ns-logo"><Brain size={21}/></span><span>neuro<span className="brand-accent">sense</span><small>CONVERSATIONS WITH CONTINUITY</small></span></span>;}
 

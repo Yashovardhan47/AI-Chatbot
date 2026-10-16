@@ -1,0 +1,265 @@
+{
+  "dataset": "NeuroSense authored support-logic scenarios v1",
+  "cases": 15,
+  "warning": "Closed synthetic support logic only. Baselines are authored heuristics, not external system reproductions. Does not measure model correctness, database races, privacy, public benchmark performance or novelty.",
+  "methods": {
+    "invalidate_if_any_reference_changes": {
+      "known_cases": 14,
+      "unknown_cases": 1,
+      "correct": 11,
+      "impact_precision": 0.75,
+      "impact_recall": 1.0,
+      "unnecessary_invalidations": 3,
+      "missed_repairs": 0,
+      "outcomes": [
+        {
+          "case": "sole_source_revised",
+          "expected_review": true,
+          "predicted_review": true
+        },
+        {
+          "case": "sole_source_revoked",
+          "expected_review": true,
+          "predicted_review": true
+        },
+        {
+          "case": "unchanged_source",
+          "expected_review": false,
+          "predicted_review": false
+        },
+        {
+          "case": "alternative_survives_revision",
+          "expected_review": false,
+          "predicted_review": true
+        },
+        {
+          "case": "alternative_survives_revocation",
+          "expected_review": false,
+          "predicted_review": true
+        },
+        {
+          "case": "joint_support_loses_one_member",
+          "expected_review": true,
+          "predicted_review": true
+        },
+        {
+          "case": "joint_support_loses_all_members",
+          "expected_review": true,
+          "predicted_review": true
+        },
+        {
+          "case": "complete_alternative_group_survives",
+          "expected_review": false,
+          "predicted_review": true
+        },
+        {
+          "case": "incomplete_alternative_is_not_enough",
+          "expected_review": true,
+          "predicted_review": true
+        },
+        {
+          "case": "every_alternative_changed",
+          "expected_review": true,
+          "predicted_review": true
+        },
+        {
+          "case": "scope_filter_removes_alternative",
+          "expected_review": true,
+          "predicted_review": true
+        },
+        {
+          "case": "shared_group_member_revoked",
+          "expected_review": true,
+          "predicted_review": true
+        },
+        {
+          "case": "new_version_is_not_old_support",
+          "expected_review": true,
+          "predicted_review": true
+        },
+        {
+          "case": "exact_new_version_survives",
+          "expected_review": false,
+          "predicted_review": false
+        },
+        {
+          "case": "untracked_dependencies",
+          "expected_review": null,
+          "predicted_review": null
+        }
+      ]
+    },
+    "keep_if_any_reference_survives": {
+      "known_cases": 14,
+      "unknown_cases": 1,
+      "correct": 11,
+      "impact_precision": 1.0,
+      "impact_recall": 0.6666666666666666,
+      "unnecessary_invalidations": 0,
+      "missed_repairs": 3,
+      "outcomes": [
+        {
+          "case": "sole_source_revised",
+          "expected_review": true,
+          "predicted_review": true
+        },
+        {
+          "case": "sole_source_revoked",
+          "expected_review": true,
+          "predicted_review": true
+        },
+        {
+          "case": "unchanged_source",
+          "expected_review": false,
+          "predicted_review": false
+        },
+        {
+          "case": "alternative_survives_revision",
+          "expected_review": false,
+          "predicted_review": false
+        },
+        {
+          "case": "alternative_survives_revocation",
+          "expected_review": false,
+          "predicted_review": false
+        },
+        {
+          "case": "joint_support_loses_one_member",
+          "expected_review": true,
+          "predicted_review": false
+        },
+        {
+          "case": "joint_support_loses_all_members",
+          "expected_review": true,
+          "predicted_review": true
+        },
+        {
+          "case": "complete_alternative_group_survives",
+          "expected_review": false,
+          "predicted_review": false
+        },
+        {
+          "case": "incomplete_alternative_is_not_enough",
+          "expected_review": true,
+          "predicted_review": false
+        },
+        {
+          "case": "every_alternative_changed",
+          "expected_review": true,
+          "predicted_review": true
+        },
+        {
+          "case": "scope_filter_removes_alternative",
+          "expected_review": true,
+          "predicted_review": true
+        },
+        {
+          "case": "shared_group_member_revoked",
+          "expected_review": true,
+          "predicted_review": false
+        },
+        {
+          "case": "new_version_is_not_old_support",
+          "expected_review": true,
+          "predicted_review": true
+        },
+        {
+          "case": "exact_new_version_survives",
+          "expected_review": false,
+          "predicted_review": false
+        },
+        {
+          "case": "untracked_dependencies",
+          "expected_review": null,
+          "predicted_review": null
+        }
+      ]
+    },
+    "complete_alternative_support": {
+      "known_cases": 14,
+      "unknown_cases": 1,
+      "correct": 14,
+      "impact_precision": 1.0,
+      "impact_recall": 1.0,
+      "unnecessary_invalidations": 0,
+      "missed_repairs": 0,
+      "outcomes": [
+        {
+          "case": "sole_source_revised",
+          "expected_review": true,
+          "predicted_review": true
+        },
+        {
+          "case": "sole_source_revoked",
+          "expected_review": true,
+          "predicted_review": true
+        },
+        {
+          "case": "unchanged_source",
+          "expected_review": false,
+          "predicted_review": false
+        },
+        {
+          "case": "alternative_survives_revision",
+          "expected_review": false,
+          "predicted_review": false
+        },
+        {
+          "case": "alternative_survives_revocation",
+          "expected_review": false,
+          "predicted_review": false
+        },
+        {
+          "case": "joint_support_loses_one_member",
+          "expected_review": true,
+          "predicted_review": true
+        },
+        {
+          "case": "joint_support_loses_all_members",
+          "expected_review": true,
+          "predicted_review": true
+        },
+        {
+          "case": "complete_alternative_group_survives",
+          "expected_review": false,
+          "predicted_review": false
+        },
+        {
+          "case": "incomplete_alternative_is_not_enough",
+          "expected_review": true,
+          "predicted_review": true
+        },
+        {
+          "case": "every_alternative_changed",
+          "expected_review": true,
+          "predicted_review": true
+        },
+        {
+          "case": "scope_filter_removes_alternative",
+          "expected_review": true,
+          "predicted_review": true
+        },
+        {
+          "case": "shared_group_member_revoked",
+          "expected_review": true,
+          "predicted_review": true
+        },
+        {
+          "case": "new_version_is_not_old_support",
+          "expected_review": true,
+          "predicted_review": true
+        },
+        {
+          "case": "exact_new_version_survives",
+          "expected_review": false,
+          "predicted_review": false
+        },
+        {
+          "case": "untracked_dependencies",
+          "expected_review": null,
+          "predicted_review": null
+        }
+      ]
+    }
+  }
+}

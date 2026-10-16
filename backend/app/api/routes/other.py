@@ -64,21 +64,23 @@ async def update_preferences(body: UpdatePreferencesRequest, current_user: User 
             ZoneInfo(body.timezone)
         except ZoneInfoNotFoundError:
             raise HTTPException(422, "Choose a valid IANA timezone")
-    prefs = current_user.preferences
-    if body.mode        is not None: prefs.mode        = body.mode
-    if body.web_search  is not None: prefs.web_search  = body.web_search
-    if body.tts_enabled is not None: prefs.tts_enabled = body.tts_enabled
-    if body.theme       is not None: prefs.theme       = body.theme
-    if body.language    is not None: prefs.language    = body.language
-    if body.memory_enabled is not None: prefs.memory_enabled = body.memory_enabled
-    if body.memory_auto_capture is not None: prefs.memory_auto_capture = body.memory_auto_capture
-    for field in ("memory_review_required", "session_memory_enabled", "knowledge_enabled", "reminder_emails", "timezone", "onboarding_completed", "workspace_goal"):
-        value = getattr(body, field)
-        if value is not None:
-            setattr(prefs, field, value)
-    current_user.preferences = prefs
-    await current_user.set({"preferences": prefs.model_dump()})
-    return {"preferences": prefs.model_dump()}
+    from app.services.memory_guard import memory_write_guard, invalidate_captures
+    from app.services.workspace_write import require_actor
+    async with memory_write_guard(str(current_user.id)):
+        fresh = await require_actor(str(current_user.id), current_user.auth_version)
+        prefs = fresh.preferences
+        before = prefs.model_dump()
+        for field, value in body.model_dump(exclude_unset=True).items():
+            if value is not None:
+                setattr(prefs, field, value)
+        await fresh.set({"preferences": prefs.model_dump()})
+        if any(before[key] != getattr(prefs, key) for key in
+               ("memory_enabled", "memory_auto_capture", "memory_review_required", "session_memory_enabled", "knowledge_enabled")):
+            await invalidate_captures(str(fresh.id))
+        # Keep the request's auth object coherent for dependency overrides too.
+        current_user.preferences = prefs
+        return {"preferences": prefs.model_dump()}
+
 
 
 @user_router.put("/password")

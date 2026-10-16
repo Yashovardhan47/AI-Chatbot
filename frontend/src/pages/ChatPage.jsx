@@ -167,7 +167,7 @@ export default function ChatPage() {
               </div>
             </div>
           )}
-          {messages.map((msg, i) => <MessageBubble key={msg.id || i} message={msg} chatId={activeChat?.id} isLast={i === messages.length - 1} onSpeak={() => speakText(msg.content)} />)}
+          {messages.map((msg, i) => <MessageBubble key={msg.id || i} message={msg} chatId={activeChat?.id} projectId={activeChat?.project_id} canChooseContext={!privateMode && !streaming} onChooseContext={({ query, choices }) => sendMessage({ content: query, contextChoices: choices, mode, webSearch, model: selectedModel, privateMode })} isLast={i === messages.length - 1} onSpeak={() => speakText(msg.content)} />)}
           {streaming && streamBuffer && <MessageBubble message={{ role: "assistant", content: streamBuffer, streaming: true }} />}
           {streaming && !streamBuffer && (
             <div className="flex gap-3 mb-5">

@@ -6,6 +6,7 @@ import "./workspace.css";
 import "./presentation.css";
 import "./typography.css";
 import "./motion.css";
+import "./context-lab.css";
 import App from "./App";
 
 ReactDOM.createRoot(document.getElementById("root")).render(

@@ -14,6 +14,11 @@ from app.services.workspace_context import gather_context
 from app.services.continuity_service import capture_session
 from app.api.routes.memory import owned_project
 from app.core.logger import logger
+from app.services.context_service import chat_context_details
+from app.services.memory_guard import memory_write_guard, context_revision, invalidate_context
+from app.services.workspace_write import require_actor
+from app.models.context_lab import ClaimSupport, AnswerReview, ContextReplay
+
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
@@ -25,6 +30,11 @@ class CreateChatBody(BaseModel):
     session_date: Optional[str] = None
 
 
+class ContextChoice(BaseModel):
+    id: str = Field(pattern=r"^[0-9a-f]{24}$")
+    version: int = Field(ge=1)
+
+
 class TurnBody(BaseModel):
     content: str = Field(default="", max_length=20000)
     attachments: List[dict] = Field(default_factory=list, max_length=5)
@@ -32,6 +42,7 @@ class TurnBody(BaseModel):
     web_search: bool = False
     model: str = DEFAULT_MODEL
     private: bool = False
+    context_choices: list[ContextChoice] = Field(default_factory=list, max_length=8)
 
 
 async def owned_chat(chat_id: str, user_id: str) -> Chat:
@@ -134,28 +145,30 @@ async def create_chat(body: CreateChatBody, current_user: User = Depends(get_cur
 @router.get("/{chat_id}")
 async def get_chat(chat_id: str, current_user: User = Depends(get_current_user)):
     chat = await owned_chat(chat_id, str(current_user.id))
-    d = chat.model_dump(); d["id"] = str(chat.id)
-    return {"chat": d}
+    return {"chat": await chat_context_details(current_user, chat)}
 
 
 @router.put("/{chat_id}")
 async def update_chat(chat_id: str, body: UpdateChatBody, current_user: User = Depends(get_current_user)):
-    chat = await owned_chat(chat_id, str(current_user.id))
-    if body.title   is not None: chat.title   = body.title
-    if body.pinned  is not None: chat.pinned  = body.pinned
-    if body.starred is not None: chat.starred = body.starred
-    if body.tags    is not None: chat.tags    = body.tags
-    if body.mode    is not None: chat.mode    = body.mode
-    chat.updated_at = datetime.utcnow()
-    await chat.save()
-    return {"chat": {"id": str(chat.id), "title": chat.title}}
+    async with memory_write_guard(str(current_user.id)):
+        await require_actor(str(current_user.id), current_user.auth_version)
+        chat = await owned_chat(chat_id, str(current_user.id))
+        changes = body.model_dump(exclude_none=True)
+        changes["updated_at"] = datetime.utcnow()
+        await Chat.get_motor_collection().update_one({"_id": chat.id, "user_id": str(current_user.id), "is_active": True}, {"$set": changes})
+    return {"chat": {"id": str(chat.id), "title": changes.get("title", chat.title)}}
 
 
 @router.delete("/{chat_id}")
 async def delete_chat(chat_id: str, current_user: User = Depends(get_current_user)):
-    chat = await owned_chat(chat_id, str(current_user.id))
-    chat.is_active = False
-    await chat.save()
+    async with memory_write_guard(str(current_user.id)):
+        await require_actor(str(current_user.id), current_user.auth_version)
+        chat = await owned_chat(chat_id, str(current_user.id))
+        await chat.set({"is_active": False})
+        for model in (ClaimSupport, AnswerReview):
+            await model.find({"user_id": str(current_user.id), "chat_id": chat_id}).delete()
+        await ContextReplay.find({"user_id": str(current_user.id), "target_kind": "answer", "target_id": {"$regex": "^" + chat_id + ":"}}).delete()
+        await invalidate_context(str(current_user.id))
     return {"message": "Chat deleted"}
 
 
@@ -237,31 +250,53 @@ async def chat_ws(websocket: WebSocket, chat_id: str, token: str = Query(...)):
                                                         observed_at=user_msg.created_at, auth_version=user.auth_version)
                     refreshed_user = await User.get(user.id)
                     if refreshed_user and refreshed_user.is_active and refreshed_user.preferences.memory_enabled:
-                        memory_result = await gather_context(refreshed_user, content, chat.project_id)
+                        memory_result = await gather_context(refreshed_user, content, chat.project_id, [c.model_dump() for c in turn.context_choices])
                     else:
                         memory_result["disabled"] = True
+                except HTTPException as error:
+                    await websocket.send_json({"type": "error", "message": error.detail})
+                    continue
                 except Exception:
                     logger.warning("NeuroSense memory processing unavailable")
                     memory_warning = "Memory is temporarily unavailable for this turn"
             system_prompt = build_system_prompt(mode, prompt_context(memory_result))
 
+            clarification = memory_result.get("clarification")
             full_text = ""
-            try:
-                async for delta in stream_ai_response(user_content, history, system_prompt, web_search, model):
-                    full_text += delta
-                    await websocket.send_json({"type": "delta", "delta": delta})
-            except Exception:
-                logger.warning("AI generation unavailable")
-                err = "The AI provider is unavailable. Your message was saved; please try again."
-                await websocket.send_json({"type": "delta", "delta": err})
-                full_text = err
+            if clarification:
+                full_text = clarification["question"]
+                await websocket.send_json({"type": "delta", "delta": full_text})
+            else:
+                try:
+                    async for delta in stream_ai_response(user_content, history, system_prompt, web_search, model):
+                        full_text += delta
+                        await websocket.send_json({"type": "delta", "delta": delta})
+                except Exception:
+                    logger.warning("AI generation unavailable")
+                    err = "The AI provider is unavailable. Your message was saved; please try again."
+                    await websocket.send_json({"type": "delta", "delta": err})
+                    full_text = err
 
             meta = extract_metadata(full_text)
             ai_msg = Message(role="assistant", content=meta["clean_text"], confidence=meta["confidence"],
                 reasoning=meta["reasoning"], sources=meta["sources"],
+                private=not memory_enabled,
+                clarification={"alternatives": [{"id": r["id"], "version": r["version"]} for r in clarification["alternatives"]],
+                               "selected": clarification.get("selected", []), "query_message_id": user_msg.id} if clarification else None,
                 memory_receipt=receipt_references(memory_result))
-            await Chat.get_motor_collection().update_one({"_id": chat.id, "user_id": str(user.id)},
-                {"$push": {"messages": ai_msg.model_dump()}, "$set": {"updated_at": datetime.utcnow()}})
+            async with memory_write_guard(str(user.id)):
+                fresh_actor = await require_actor(str(user.id), user.auth_version)
+                await owned_project(chat.project_id, str(user.id))
+                revision = memory_result.get("context_revision")
+                if memory_enabled and (not fresh_actor.preferences.memory_enabled or
+                        (revision is not None and revision != await context_revision(str(user.id)))):
+                    await websocket.send_json({"type": "error", "message": "Your context changed while answering. Please ask again using the current evidence."})
+                    continue
+                result = await Chat.get_motor_collection().update_one({"_id": chat.id, "user_id": str(user.id), "is_active": True},
+                    {"$push": {"messages": ai_msg.model_dump()}, "$set": {"updated_at": datetime.utcnow()}})
+                if not result.matched_count:
+                    await websocket.send_json({"type": "error", "message": "This conversation was removed."})
+                    continue
 
             try:
                 await User.get_motor_collection().update_one({"_id": user.id}, {"$inc": {"stats.total_messages": 1}})
@@ -277,6 +312,7 @@ async def chat_ws(websocket: WebSocket, chat_id: str, token: str = Query(...)):
                 "content": meta["clean_text"], "message_id": ai_msg.id,
                 "saved_memories": saved_memories, "memory_receipt": receipt_references(memory_result),
                 "memory_warning": memory_warning,
+                "clarification": {**clarification, "query": content} if clarification else None,
             })
 
     except WebSocketDisconnect:

@@ -23,6 +23,10 @@ it("preserves a protected deep link when requesting sign-in", async () => {
   open("/chat/thread-123?source=memory");
   await waitFor(() => expect(screen.getByTestId("location").textContent).toBe("/login?next=%2Fchat%2Fthread-123%3Fsource%3Dmemory"));
 });
+it("preserves a context review destination through sign-in", async () => {
+  open("/context-lab?change=change-123");
+  await waitFor(() => expect(screen.getByTestId("location").textContent).toBe("/login?next=%2Fcontext-lab%3Fchange%3Dchange-123"));
+});
 it("renders the signed-in home as a different page", async () => {
   mocks.state.user = { id: "owner", preferences: { onboarding_completed: true } }; open("/home");
   await screen.findByRole("heading", { name: "Account home" }); expect(screen.getByTestId("account-shell")).toBeTruthy();

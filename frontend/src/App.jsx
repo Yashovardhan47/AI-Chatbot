@@ -34,6 +34,7 @@ const SecurityPage = lazy(() => import("./pages/SecurityPage"));
 const ConversationsPage = lazy(() => import("./pages/ConversationsPage"));
 const TourPage = lazy(() => import("./pages/TourPage"));
 const AuthSetupPage = lazy(() => import("./pages/AuthSetupPage"));
+const ContextLabPage = lazy(() => import("./pages/ContextLabPage"));
 
 // Instant, lightweight fallback — shown for the few ms a lazy chunk takes
 // to load, so switching pages never *looks* frozen.
@@ -90,6 +91,7 @@ export function AppRoutes() {
       <Route path="/continuity" element={<ContinuityPage />} />
       <Route path="/review" element={<ReviewPage />} />
       <Route path="/memory-graph" element={<GraphPage />} />
+      <Route path="/context-lab" element={<ContextLabPage />} />
     </Route>
     <Route path="*" element={<Navigate to="/" replace />} />
   </Routes></Suspense></>;

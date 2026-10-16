@@ -73,6 +73,9 @@ class Commitment(Document):
     notes: str = ""
     source_chat_id: Optional[str] = None
     source_memory_id: Optional[str] = None
+    source_message_id: Optional[str] = None
+    evidence_refs: list[dict] = Field(default_factory=list)
+    last_context_replay: Optional[str] = None
     status: str = "pending"
     due_at: Optional[datetime] = None
     timezone: str = "Asia/Kolkata"
