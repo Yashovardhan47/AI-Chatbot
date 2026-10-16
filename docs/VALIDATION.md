@@ -5,6 +5,20 @@ synthetic. No live user database, paid model call or real email was used.
 
 ## Context Lab workflow integration
 
+[GitHub Actions run 38847078254](https://github.com/Yashovardhan47/AI-Chatbot/actions/runs/38847078254)
+passed for code commit `1158630fb34f1c3e2cee0fefc98d32cffaa5f1ae`:
+**123 backend tests against real MongoDB**, **78 frontend tests**, Vite production
+build and Compose configuration validation.
+
+The existing Site successfully deployed source commit
+`2d509a9893309a1752b9d669f6ac22463b594489`. Its static-host HashRouter variant
+passed the same 78 frontend tests and production build before packaging. Source
+comparison confirmed it matches the canonical frontend plus that router adapter.
+
+- [Interactive Context Lab example](https://neurosense-ai-workspace-demo.kummarayashovardhan.chatgpt.site/#/tour?view=context)
+- [Protected real-data Context Lab](https://neurosense-ai-workspace-demo.kummarayashovardhan.chatgpt.site/#/context-lab)
+
+
 Implemented experimental workflows now include exact signed change previews,
 owner-confirmed alternative claim support, evidence-linked commitments,
 current-evidence replay, reviewed answer notes/task edits, recall decision
