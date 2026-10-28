@@ -1,10 +1,12 @@
-from pydantic import BaseModel, EmailStr, Field
-from typing import Optional, List
+from pydantic import BaseModel, EmailStr, Field, StringConstraints
+from typing import Optional, List, Annotated, Literal
+
+DisplayName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=80)]
 
 
 # Passwords are pre-hashed before bcrypt; limits also bound request work.
 class RegisterRequest(BaseModel):
-    name:     str = Field(min_length=2, max_length=80)
+    name:     DisplayName
     email:    EmailStr
     password: str = Field(min_length=8, max_length=1024)
 
@@ -31,36 +33,36 @@ class ResetPasswordRequest(BaseModel):
 
 
 class ChangePasswordRequest(BaseModel):
-    current_password: str
+    current_password: str = Field(min_length=1, max_length=1024)
     new_password:     str = Field(min_length=8, max_length=1024)
 
 
 # User
 class UpdateProfileRequest(BaseModel):
-    name:   Optional[str] = Field(None, min_length=2, max_length=80)
-    avatar: Optional[str] = None
+    name:   Optional[DisplayName] = None
+    avatar: Optional[str] = Field(None, max_length=2048, pattern=r"^(https?://[^\s]+)?$")
 
 
 class UpdatePreferencesRequest(BaseModel):
-    mode:        Optional[str]  = None
+    mode:        Optional[Literal["auto", "friend", "teacher", "researcher", "coder", "mentor"]] = None
     web_search:  Optional[bool] = None
     tts_enabled: Optional[bool] = None
-    theme:       Optional[str]  = None
-    language:    Optional[str]  = None
+    theme:       Optional[Literal["dark", "light", "system"]] = None
+    language:    Optional[str]  = Field(None, max_length=35)
     memory_enabled: Optional[bool] = None
     memory_auto_capture: Optional[bool] = None
     memory_review_required: Optional[bool] = None
     session_memory_enabled: Optional[bool] = None
     knowledge_enabled: Optional[bool] = None
     reminder_emails: Optional[bool] = None
-    timezone: Optional[str] = None
+    timezone: Optional[str] = Field(None, min_length=1, max_length=100)
     onboarding_completed: Optional[bool] = None
     workspace_goal: Optional[str] = Field(None, max_length=160)
 
 
 # Chat
 class AttachmentIn(BaseModel):
-    name:         str
-    url:          str
-    file_type:    str
-    text_content: Optional[str] = None
+    name: str = Field(min_length=1, max_length=160)
+    url: str = Field(max_length=2048, pattern=r"^https?://[^\s]+$")
+    file_type: Literal["image", "pdf", "file", "audio", "video"]
+    text_content: Optional[str] = Field(None, max_length=12000)
