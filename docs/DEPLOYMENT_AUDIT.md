@@ -29,17 +29,19 @@ does not host FastAPI, MongoDB, Google OAuth configuration or a language model.
 ## Verification
 
 - Backend: 136 tests passed locally after the audit fixes, using an isolated
-  mongomock-motor database. CI runs the same suite against real MongoDB.
+  mongomock-motor database. The same suite passed against real MongoDB in
+  [CI run 40628096696](https://github.com/Yashovardhan47/AI-Chatbot/actions/runs/40628096696)
+  for code commit `1197d2aa55e6f16afe62f5443c4550d940949a62`.
 - Frontend: 81 tests passed across 21 files; Vite production build passed.
-  CI and the publication record provide the pushed-commit checks.
+  Both the repository CI and the static-host build passed these checks.
 - Production lock and development lock: `pip-audit` reported no known
   vulnerabilities in their resolved dependency sets. `npm audit` reported zero.
   These are point-in-time advisory checks, not a proof of security.
 - `pip check`, Git whitespace checks and repository hygiene checks passed.
 - Browser QA on the managed preview: landing page and the illustrative Context
   Lab preview → apply → replay → approve flow rendered and completed.
-- Local Docker is unavailable in the audit environment. CI checks Compose,
-  builds the web container and validates nginx configuration. No local full-stack
+- Local Docker is unavailable in the audit environment. The successful CI run checked Compose,
+  built the web container and validated nginx configuration. No local full-stack
   container startup, external SMTP delivery, paid AI call or real Google consent
   was performed.
 

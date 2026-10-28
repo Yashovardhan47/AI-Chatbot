@@ -4,8 +4,25 @@ The audit changes pass 136 backend tests on isolated mongomock-motor and
 81 frontend tests across 21 files. Vite builds successfully. The production and
 development lock audits and npm audit report no known vulnerabilities. See
 DEPLOYMENT_AUDIT.md for unresolved production requirements and verification limits.
-A real-MongoDB CI run for the pushed audit revision is recorded below after it
-completes. Earlier validation records describe earlier revisions.
+The complete audit code commit is `1197d2aa55e6f16afe62f5443c4550d940949a62`
+(tree `da899f2d9c8288ff9a3b7ebc24ff2cbe7d579417`).
+[GitHub Actions run 40628096696](https://github.com/Yashovardhan47/AI-Chatbot/actions/runs/40628096696)
+succeeded on that exact commit. Both jobs passed: the backend suite against real
+MongoDB, the development dependency audit, repository hygiene, frontend tests,
+npm audit, Vite build, Compose validation, web image build and nginx syntax check.
+
+The updated owner-private demo was published successfully at
+https://neurosense-ai-workspace-demo.kummarayashovardhan.chatgpt.site
+from Site source `2e3f0013fb571e79980353191b043cbc0ee4eaec` after its 81 frontend
+tests and production build passed. Deployment:
+`appgdep_6ae16e47c8fc8191b66ab994dbed224d`.
+The Site uses hash routing for static hosting and retains the existing audience.
+The browser reached the private ChatGPT access gate on the published origin;
+product interaction QA used the managed preview. No real Google consent or
+hosted Python API was verified.
+
+This validation-only update changes documentation after the tested code commit.
+Earlier validation records below describe earlier revisions.
 
 ---
 
