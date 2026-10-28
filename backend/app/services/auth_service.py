@@ -12,6 +12,8 @@ from app.core.config import settings
 from app.db.database import get_redis
 from app.services.email_service import send_verification_email, send_reset_email
 from app.models.workspace import AuthSession, TokenRevocation
+from app.services.memory_guard import memory_write_guard
+from app.services.workspace_write import require_actor
 
 
 def token_hash(token):
@@ -23,10 +25,12 @@ async def is_revoked(token):
 
 
 async def issue_tokens(user, method=None):
-    method = method or ("google" if user.provider == Provider.google else "password")
-    refresh = create_refresh_token(str(user.id), user.auth_version, method)
-    await AuthSession(user_id=str(user.id), token_hash=token_hash(refresh), expires_at=datetime.utcnow()+timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)).insert()
-    return {"access_token": create_access_token(str(user.id), user.auth_version, method), "refresh_token": refresh, "user": user.safe_dict()}
+    async with memory_write_guard(str(user.id)):
+        user = await require_actor(str(user.id), user.auth_version)
+        method = method or ("google" if user.provider == Provider.google else "password")
+        refresh = create_refresh_token(str(user.id), user.auth_version, method)
+        await AuthSession(user_id=str(user.id), token_hash=token_hash(refresh), expires_at=datetime.utcnow()+timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)).insert()
+        return {"access_token": create_access_token(str(user.id), user.auth_version, method), "refresh_token": refresh, "user": user.safe_dict()}
 
 
 async def register_user(name: str, email: str, password: str) -> dict:
@@ -38,14 +42,18 @@ async def register_user(name: str, email: str, password: str) -> dict:
     token = secrets.token_urlsafe(32)
     user  = User(
         name=name, email=email,
-        password=hash_password(password),
-        verify_token=token,
+        password=await asyncio.to_thread(hash_password, password),
+        verify_token=token_hash(token),
+        verify_expires=datetime.now(timezone.utc) + timedelta(hours=24),
         # Auto-verify if email not configured — required for dev mode to work
         is_verified=(settings.DEBUG and not settings.MAIL_USERNAME),
         preferences=Preferences(),
         stats=Stats(),
     )
-    await user.insert()
+    try:
+        await user.insert()
+    except DuplicateKeyError:
+        raise ValueError("Email already registered. Please log in instead.")
 
     try:
         await send_verification_email(user.email, user.name, token)
@@ -58,19 +66,31 @@ async def register_user(name: str, email: str, password: str) -> dict:
 
 
 async def verify_email(token: str) -> dict:
-    user = await User.find_one(User.verify_token == token)
-    if not user:
+    result = await User.get_motor_collection().update_one(
+        {"verify_token": token_hash(token), "verify_expires": {"$gt": datetime.now(timezone.utc)}, "is_active": True},
+        {"$set": {"is_verified": True, "verify_token": None, "verify_expires": None}})
+    if not result.matched_count:
         raise ValueError("Invalid or expired verification token")
-    user.is_verified  = True
-    user.verify_token = None
-    await user.save()
     return {"message": "Email verified! You can now log in."}
+
+
+async def resend_verification(email: str):
+    user = await User.find_one({"email": email.strip().lower(), "provider": Provider.local,
+                                "is_verified": False, "is_active": True})
+    if not user:
+        return
+    token = secrets.token_urlsafe(32)
+    result = await User.get_motor_collection().update_one(
+        {"_id": user.id, "is_active": True, "is_verified": False, "auth_version": user.auth_version},
+        {"$set": {"verify_token": token_hash(token), "verify_expires": datetime.now(timezone.utc) + timedelta(hours=24)}})
+    if result.matched_count:
+        await send_verification_email(user.email, user.name, token)
 
 
 async def login_user(email: str, password: str) -> dict:
     email = email.strip().lower()
     user = await User.find_one(User.email == email, User.provider == Provider.local)
-    if not user or not user.password or not verify_password(password, user.password):
+    if not user or not user.password or not await asyncio.to_thread(verify_password, password, user.password):
         raise ValueError("Email or password is incorrect")
     if not user.is_verified:
         raise ValueError("Email not verified. Check your email for the verification link.")
@@ -78,7 +98,7 @@ async def login_user(email: str, password: str) -> dict:
         raise ValueError("Account deactivated")
 
     await User.get_motor_collection().update_one({"_id": user.id}, {"$set": {"last_login": datetime.utcnow()}, "$inc": {"stats.total_sessions": 1}})
-    return await issue_tokens(await User.get(user.id))
+    return await issue_tokens(user)
 
 
 async def verify_google_identity(credential: str) -> dict:
@@ -119,11 +139,11 @@ async def google_login(credential: str) -> dict:
     if not user.is_active:
         raise ValueError("Account deactivated")
     await User.get_motor_collection().update_one({"_id": user.id}, {"$set": {"last_login": datetime.utcnow()}, "$inc": {"stats.total_sessions": 1}})
-    return await issue_tokens(await User.get(user.id), "google")
+    return await issue_tokens(user, "google")
 
 
 async def link_google(user, credential: str, current_password: str) -> dict:
-    if not user.password or not verify_password(current_password, user.password):
+    if not user.password or not await asyncio.to_thread(verify_password, current_password, user.password):
         raise ValueError("Confirm your current account password to link Google")
     info = await verify_google_identity(credential)
     if info["email"].strip().lower() != user.email.lower():
@@ -189,9 +209,11 @@ async def forgot_password(email: str):
     if not user:
         return
     token = secrets.token_urlsafe(32)
-    user.reset_token   = hashlib.sha256(token.encode()).hexdigest()
-    user.reset_expires = datetime.now(timezone.utc) + timedelta(hours=1)
-    await user.save()
+    result = await User.get_motor_collection().update_one(
+        {"_id": user.id, "auth_version": user.auth_version, "is_active": True},
+        {"$set": {"reset_token": token_hash(token), "reset_expires": datetime.now(timezone.utc) + timedelta(hours=1)}})
+    if not result.matched_count:
+        return
     try:
         await send_reset_email(user.email, user.name, token)
     except Exception:
@@ -203,5 +225,12 @@ async def reset_password(token: str, new_password: str):
     user   = await User.find_one(User.reset_token == hashed, User.reset_expires > datetime.now(timezone.utc))
     if not user:
         raise ValueError("Invalid or expired reset link")
-    await User.get_motor_collection().update_one({"_id": user.id}, {"$set": {"password": hash_password(new_password), "reset_token": None, "reset_expires": None}, "$inc": {"auth_version": 1}})
-    await AuthSession.find({"user_id": str(user.id)}).update({"$set": {"revoked": True}})
+    password_hash = await asyncio.to_thread(hash_password, new_password)
+    async with memory_write_guard(str(user.id)):
+        result = await User.get_motor_collection().update_one(
+            {"_id": user.id, "is_active": True, "auth_version": user.auth_version,
+             "reset_token": hashed, "reset_expires": {"$gt": datetime.now(timezone.utc)}},
+            {"$set": {"password": password_hash, "reset_token": None, "reset_expires": None}, "$inc": {"auth_version": 1}})
+        if not result.matched_count:
+            raise ValueError("Invalid or expired reset link")
+        await AuthSession.find({"user_id": str(user.id)}).update({"$set": {"revoked": True}})

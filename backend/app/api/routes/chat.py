@@ -1,4 +1,6 @@
-from fastapi import APIRouter, HTTPException, Depends, WebSocket, WebSocketDisconnect, Query
+import asyncio
+import json
+from fastapi import APIRouter, HTTPException, Depends, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field, ValidationError
 from beanie import PydanticObjectId
 from bson.errors import InvalidId
@@ -18,6 +20,7 @@ from app.services.context_service import chat_context_details
 from app.services.memory_guard import memory_write_guard, context_revision, invalidate_context
 from app.services.workspace_write import require_actor
 from app.models.context_lab import ClaimSupport, AnswerReview, ContextReplay
+from app.schemas.schemas import AttachmentIn
 
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
@@ -37,7 +40,7 @@ class ContextChoice(BaseModel):
 
 class TurnBody(BaseModel):
     content: str = Field(default="", max_length=20000)
-    attachments: List[dict] = Field(default_factory=list, max_length=5)
+    attachments: List[AttachmentIn] = Field(default_factory=list, max_length=5)
     mode: str = "auto"
     web_search: bool = False
     model: str = DEFAULT_MODEL
@@ -78,20 +81,22 @@ async def get_chats(current_user: User = Depends(get_current_user)):
 
 @router.post("/daily")
 async def get_or_create_daily(current_user: User = Depends(get_current_user)):
-    today = date.today().isoformat()
-    existing = await Chat.find_one(
-        Chat.user_id == str(current_user.id), Chat.session_date == today,
-        Chat.is_daily == True, Chat.is_active == True,
-    )
-    if existing:
-        d = existing.model_dump(); d["id"] = str(existing.id)
-        return {"chat": d, "is_new": False}
+    async with memory_write_guard(str(current_user.id)):
+        await require_actor(str(current_user.id), current_user.auth_version)
+        today = date.today().isoformat()
+        existing = await Chat.find_one(
+            Chat.user_id == str(current_user.id), Chat.session_date == today,
+            Chat.is_daily == True, Chat.is_active == True,
+        )
+        if existing:
+            d = existing.model_dump(); d["id"] = str(existing.id)
+            return {"chat": d, "is_new": False}
 
-    day_name = datetime.now().strftime("%A, %B %d")
-    chat = Chat(user_id=str(current_user.id), title=f"Today — {day_name}", is_daily=True, session_date=today, mode="auto")
-    await chat.insert()
-    d = chat.model_dump(); d["id"] = str(chat.id)
-    return {"chat": d, "is_new": True}
+        day_name = datetime.now().strftime("%A, %B %d")
+        chat = Chat(user_id=str(current_user.id), title=f"Today — {day_name}", is_daily=True, session_date=today, mode="auto")
+        await chat.insert()
+        d = chat.model_dump(); d["id"] = str(chat.id)
+        return {"chat": d, "is_new": True}
 
 
 @router.get("/history")
@@ -128,13 +133,15 @@ async def get_history(current_user: User = Depends(get_current_user)):
 
 @router.post("/", status_code=201)
 async def create_chat(body: CreateChatBody, current_user: User = Depends(get_current_user)):
-    await owned_project(body.project_id, str(current_user.id))
-    today = date.today().isoformat()
-    chat  = Chat(
-        user_id=str(current_user.id), project_id=body.project_id, mode=body.mode,
-        is_daily=body.is_daily, session_date=body.session_date or (today if body.is_daily else None),
-    )
-    await chat.insert()
+    async with memory_write_guard(str(current_user.id)):
+        await require_actor(str(current_user.id), current_user.auth_version)
+        await owned_project(body.project_id, str(current_user.id))
+        today = date.today().isoformat()
+        chat = Chat(
+            user_id=str(current_user.id), project_id=body.project_id, mode=body.mode,
+            is_daily=body.is_daily, session_date=body.session_date or (today if body.is_daily else None),
+        )
+        await chat.insert()
     return {"chat": {
         "id": str(chat.id), "title": chat.title, "mode": chat.mode, "project_id": chat.project_id,
         "is_daily": chat.is_daily, "session_date": chat.session_date, "starred": chat.starred,
@@ -173,17 +180,40 @@ async def delete_chat(chat_id: str, current_user: User = Depends(get_current_use
 
 
 @router.websocket("/ws/{chat_id}")
-async def chat_ws(websocket: WebSocket, chat_id: str, token: str = Query(...)):
+async def chat_ws(websocket: WebSocket, chat_id: str):
+    from app.api.routes.auth import check_browser_origin
+    try:
+        check_browser_origin(websocket)
+    except HTTPException:
+        await websocket.close(code=1008)
+        return
     await websocket.accept()
     try:
+        # Authenticate in a bounded first frame, never in a logged request URL.
+        if "token" in websocket.query_params:
+            await websocket.close(code=1008)
+            return
+        raw = await asyncio.wait_for(websocket.receive_text(), timeout=10)
+        data = json.loads(raw) if len(raw) <= 12000 else None
+        token = data.get("token") if isinstance(data, dict) else None
+        if not isinstance(token, str) or not token or len(token) > 10000 or data.get("type") != "authenticate":
+            await websocket.close(code=1008)
+            return
         user = await ws_auth(websocket, token)
-    except Exception:
+    except HTTPException:
+        return  # ws_auth already closed the unauthenticated socket.
+    except (ValueError, TypeError, asyncio.TimeoutError):
+        await websocket.close(code=1008)
+        return
+    except WebSocketDisconnect:
         return
 
     if chat_id == "new":
         today = date.today().isoformat()
-        chat  = Chat(user_id=str(user.id), session_date=today)
-        await chat.insert()
+        async with memory_write_guard(str(user.id)):
+            await require_actor(str(user.id), user.auth_version)
+            chat = Chat(user_id=str(user.id), session_date=today)
+            await chat.insert()
         await websocket.send_json({"type": "chat_created", "chat_id": str(chat.id)})
     else:
         try:
@@ -193,9 +223,13 @@ async def chat_ws(websocket: WebSocket, chat_id: str, token: str = Query(...)):
             await websocket.close(code=1008)
             return
 
+    await websocket.send_json({"type": "ready"})
     try:
         while True:
             data = await websocket.receive_json()
+            if not isinstance(data, dict):
+                await websocket.send_json({"type": "error", "message": "Send a message object"})
+                continue
             if data.get("type") != "message":
                 continue
 
@@ -226,7 +260,7 @@ async def chat_ws(websocket: WebSocket, chat_id: str, token: str = Query(...)):
                     self.name         = d.get("name", "")
                     self.text_content = d.get("text_content")
 
-            att_objs     = [AttObj(a) for a in attachments]
+            att_objs     = [AttObj(a.model_dump()) for a in attachments]
             user_content = build_user_content(content, att_objs)
 
             user_msg = Message(role="user", content=content, private=not memory_enabled,
@@ -234,8 +268,11 @@ async def chat_ws(websocket: WebSocket, chat_id: str, token: str = Query(...)):
             changes = {"updated_at": datetime.utcnow()}
             if (chat.title == "New Conversation" or chat.title.startswith("Today —")) and content:
                 changes["title"] = content[:55] + ("…" if len(content) > 55 else "")
-            stored = await Chat.get_motor_collection().update_one({"_id": chat.id, "user_id": str(user.id)},
-                {"$push": {"messages": user_msg.model_dump()}, "$set": changes})
+            async with memory_write_guard(str(user.id)):
+                await require_actor(str(user.id), user.auth_version)
+                await owned_project(chat.project_id, str(user.id))
+                stored = await Chat.get_motor_collection().update_one({"_id": chat.id, "user_id": str(user.id), "is_active": True},
+                    {"$push": {"messages": user_msg.model_dump()}, "$set": changes})
             if not stored.matched_count:
                 raise HTTPException(404, "Conversation was removed")
 
@@ -337,6 +374,8 @@ async def save_feedback(chat_id: str, message_id: str, body: FeedbackInput, user
     if not message:
         raise HTTPException(404, "Answer not found")
     async with memory_write_guard(str(user.id)):
+        await require_actor(str(user.id), user.auth_version)
+        await owned_chat(chat_id, str(user.id))
         key = {"user_id": str(user.id), "chat_id": chat_id, "message_id": message_id}
         references = (message.memory_receipt or {}).get("used", [])
         existing = await MemoryFeedback.find_one(key)

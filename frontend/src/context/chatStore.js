@@ -35,7 +35,7 @@ const useChatStore = create((set, get) => ({
       const { data } = await api.get("/chat/history");
       if (epoch !== sessionEpoch()) return;
       set({ historyGroups: data.groups || {} });
-    } catch { set({ historyGroups: {} }); }
+    } catch { if (epoch === sessionEpoch()) set({ historyGroups: {} }); }
   },
 
   getTodayChat: async () => {
@@ -144,7 +144,7 @@ const useChatStore = create((set, get) => ({
   sendMessage: ({ content, attachments = [], mode = "auto", webSearch = false, model = "claude-sonnet-4-6", privateMode = false, contextChoices = [] }) => {
     if (get().streaming) return false;
     const { socket } = get();
-    if (!socket || socket.readyState !== WebSocket.OPEN) {
+    if (!socket || socket.readyState !== WebSocket.OPEN || get().connection !== "ready") {
       toast.error("Chat is connecting. Please try again in a moment.");
       return false;
     }
@@ -167,7 +167,7 @@ const useChatStore = create((set, get) => ({
       const { data } = await memoryAPI.getAll();
       if (epoch !== sessionEpoch()) return;
       set({ memories: data.memories, memoryTotal: data.total, memoryError: null });
-    } catch { set({ memoryError: "Unable to load memories" }); }
+    } catch { if (epoch === sessionEpoch()) set({ memoryError: "Unable to load memories" }); }
   },
 
   deleteMemory: async id => {

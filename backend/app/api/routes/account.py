@@ -12,6 +12,7 @@ from app.models.context_lab import ContextChange, ClaimSupport, ContextReplay, A
 from app.models.workspace import KnowledgeDocument, MemoryEdge, MemoryFeedback, SessionDigest, Commitment, Notification, AuthSession, MemoryProposal
 from app.services.memory_guard import memory_write_guard, invalidate_captures
 from app.services.continuity_service import public_record
+from app.services.workspace_write import require_actor
 
 router = APIRouter(prefix="/api/account", tags=["account data controls"])
 DATA_MODELS = {"chats": Chat, "memories": Memory, "projects": Project, "documents": KnowledgeDocument,
@@ -37,6 +38,7 @@ async def erase_data(body: EraseInput, user: User = Depends(get_current_user)):
     if body.confirmation != "DELETE MY DATA":
         raise HTTPException(422, "Type DELETE MY DATA to erase stored workspace data")
     async with memory_write_guard(str(user.id)):
+        await require_actor(str(user.id), user.auth_version)
         await User.get_motor_collection().update_one({"_id": user.id}, {"$inc": {"auth_version": 1}, "$set": {"stats": {"total_messages": 0, "total_sessions": 0, "files_uploaded": 0, "tokens_used": 0}}})
         await AuthSession.find({"user_id": str(user.id)}).update({"$set": {"revoked": True}})
         for model in DATA_MODELS.values():

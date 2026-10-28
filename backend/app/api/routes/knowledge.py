@@ -14,6 +14,8 @@ from app.api.routes.memory import owned_project
 from app.core.config import settings
 from app.services.knowledge_service import parse_file, store_document, summary, retrieve_documents
 from app.services.embeddings import encode_texts
+from app.services.memory_guard import memory_write_guard, invalidate_context
+from app.services.workspace_write import require_actor
 
 router = APIRouter(prefix="/api/knowledge", tags=["persistent knowledge"])
 
@@ -123,14 +125,21 @@ async def index_document(document_id: str, user: User = Depends(get_current_user
         vectors = await encode_texts([c.text for c in pending])
     except Exception:
         raise HTTPException(503, "Configure an available Ollama embedding model to build the index")
-    for chunk, vector in zip(pending, vectors):
-        await KnowledgeDocument.get_motor_collection().update_one({"_id": document.id, "user_id": str(user.id), "chunks.id": chunk.id},
-            {"$set": {"chunks.$.embedding": vector, "chunks.$.embedding_model": settings.EMBEDDINGS_MODEL}})
+    async with memory_write_guard(str(user.id)):
+        await require_actor(str(user.id), user.auth_version)
+        await owned_document(document_id, str(user.id))
+        await owned_project(document.project_id, str(user.id))
+        for chunk, vector in zip(pending, vectors):
+            await KnowledgeDocument.get_motor_collection().update_one({"_id": document.id, "user_id": str(user.id), "chunks.id": chunk.id},
+                {"$set": {"chunks.$.embedding": vector, "chunks.$.embedding_model": settings.EMBEDDINGS_MODEL}})
     updated = await owned_document(document_id, str(user.id))
     return {"indexed": len(pending), "remaining": sum(not c.embedding or c.embedding_model != settings.EMBEDDINGS_MODEL for c in updated.chunks)}
 
 
 @router.delete("/{document_id}")
 async def delete_document(document_id: str, user: User = Depends(get_current_user)):
-    await (await owned_document(document_id, str(user.id))).delete()
+    async with memory_write_guard(str(user.id)):
+        await require_actor(str(user.id), user.auth_version)
+        await (await owned_document(document_id, str(user.id))).delete()
+        await invalidate_context(str(user.id))
     return {"message": "Document, original file and indexed passages deleted"}

@@ -1,3 +1,14 @@
+# Deployment audit validation — 28 October 2026
+
+The audit changes pass 136 backend tests on isolated mongomock-motor and
+81 frontend tests across 21 files. Vite builds successfully. The production and
+development lock audits and npm audit report no known vulnerabilities. See
+DEPLOYMENT_AUDIT.md for unresolved production requirements and verification limits.
+A real-MongoDB CI run for the pushed audit revision is recorded below after it
+completes. Earlier validation records describe earlier revisions.
+
+---
+
 # NeuroSense validation
 
 Validation date: 2026-10-16. All test accounts, messages and signing keys are

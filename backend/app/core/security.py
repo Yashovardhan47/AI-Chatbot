@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-from jose import JWTError, jwt
+import jwt
+from jwt import InvalidTokenError
 from passlib.context import CryptContext
 from app.core.config import settings
 import hashlib
@@ -47,13 +48,12 @@ def decode_token(token: str) -> Optional[dict]:
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM],
             issuer=settings.JWT_ISSUER, audience=settings.JWT_AUDIENCE,
-            options={"require_exp": True, "require_iat": True, "require_sub": True,
-                     "require_iss": True, "require_aud": True, "require_jti": True})
+            options={"require": ["exp", "iat", "sub", "iss", "aud", "jti"]})
         if (payload.get("type") not in {"access", "refresh"} or
             type(payload.get("sv")) is not int or payload["sv"] < 0 or
             payload.get("amr") not in {"password", "google"} or
             not isinstance(payload.get("sub"), str) or not payload["sub"]):
             return None
         return payload
-    except (JWTError, ValueError, TypeError):
+    except (InvalidTokenError, ValueError, TypeError):
         return None

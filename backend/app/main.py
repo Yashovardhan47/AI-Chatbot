@@ -1,10 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 
 from app.core.config import settings
 from app.core.logger import logger
-from app.db.database import connect_db, connect_redis, disconnect_db
+from app.db.database import connect_db, connect_redis, disconnect_db, database_ready
 from app.api.routes.auth     import router as auth_router
 from app.api.routes.chat     import router as chat_router
 from app.api.routes.other    import file_router, user_router
@@ -66,3 +67,10 @@ app.include_router(context_router)
 @app.get("/api/health")
 async def health():
     return {"status": "ok", "app": settings.APP_NAME, "version": "7.0.0", "memory": "NeuroSense"}
+
+
+@app.get("/api/ready")
+async def ready():
+    available = await database_ready()
+    return JSONResponse({"status": "ready" if available else "unavailable", "database": available},
+                        status_code=200 if available else 503)

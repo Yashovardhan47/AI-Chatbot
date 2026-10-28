@@ -53,6 +53,12 @@ async def verify_email(token: str):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.post("/resend-verification")
+async def resend_verification(body: ForgotPasswordRequest):
+    await auth_service.resend_verification(body.email)
+    return {"message": "If this account needs verification, a new link was sent. Check your inbox."}
+
+
 @router.post("/login")
 async def login(body: LoginRequest, response: Response):
     try:

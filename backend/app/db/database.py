@@ -42,13 +42,23 @@ async def connect_redis():
         _redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=2)
         await _redis_client.ping()
         logger.info("Redis connected")
-    except Exception as e:
-        logger.warning(f"Redis not available ({e}) — running without it")
+    except Exception:
+        logger.warning("Redis not available — running without the optional revocation cache")
         _redis_client = None
 
 
 def get_redis():
     return _redis_client
+
+
+async def database_ready():
+    if _mongo_client is None:
+        return False
+    try:
+        await _mongo_client.admin.command("ping")
+        return True
+    except Exception:
+        return False
 
 
 async def disconnect_db():

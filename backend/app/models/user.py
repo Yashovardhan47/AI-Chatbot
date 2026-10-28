@@ -52,6 +52,7 @@ class User(Document):
     is_active:     bool               = True
     auth_version: int = 0
     verify_token:  Optional[str]      = None
+    verify_expires: Optional[datetime] = None
     reset_token:   Optional[str]      = None
     reset_expires: Optional[datetime] = None
     last_login:    Optional[datetime] = None
@@ -64,7 +65,7 @@ class User(Document):
         name = "users"
 
     def safe_dict(self) -> dict:
-        d = self.model_dump(exclude={"password", "provider_id", "verify_token", "reset_token", "reset_expires", "auth_version", "revision_id"})
+        d = self.model_dump(exclude={"password", "provider_id", "verify_token", "verify_expires", "reset_token", "reset_expires", "auth_version", "revision_id"})
         d["id"] = str(self.id)
         d["auth_methods"] = {"password": bool(self.password), "google": bool(self.provider_id)}
         return d

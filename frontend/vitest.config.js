@@ -4,5 +4,5 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
   test: { environment: "jsdom", include: ["src/**/*.test.{js,jsx}"],
-    pool: "threads", poolOptions: { threads: { singleThread: true } } },
+    pool: "threads", maxWorkers: 1, isolate: true },
 });

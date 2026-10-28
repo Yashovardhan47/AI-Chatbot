@@ -27,6 +27,7 @@ describe("chat memory lifecycle", () => {
   it("preserves clarification options and sends only explicit versioned context choices", () => {
     useChatStore.getState()._connectSocket("chat");
     const socket = mocks.sockets[0];
+    socket.handlers.onOpen();
     const clarification = { query: "Which backend?", alternatives: [{ id: "memory", version: 2, fact: "Use FastAPI" }], selected: [] };
     socket.handlers.onDone({ content: "Choose context", message_id: "clarification", clarification });
     expect(useChatStore.getState().messages[0].clarification).toEqual(clarification);
@@ -35,8 +36,10 @@ describe("chat memory lifecycle", () => {
     expect(useChatStore.getState().sendMessage({ content: "A duplicate click" })).toBe(false);
   });
   it("does not report a message as sent before the socket is ready", () => {
+    useChatStore.getState()._connectSocket("chat");
     expect(useChatStore.getState().sendMessage({ content: "Keep this input" })).toBe(false);
     expect(useChatStore.getState().messages).toEqual([]);
+    expect(mocks.sockets[0].send).not.toHaveBeenCalled();
   });
 
   it("ignores late answers from an earlier chat socket", () => {
@@ -52,6 +55,7 @@ describe("chat memory lifecycle", () => {
   it("sends the privacy flag and uses clean final content instead of streamed metadata", () => {
     useChatStore.getState()._connectSocket("chat");
     const socket = mocks.sockets[0];
+    socket.handlers.onOpen();
     expect(useChatStore.getState().sendMessage({ content: "Hi", privateMode: true })).toBe(true);
     expect(JSON.parse(socket.send.mock.calls[0][0]).private).toBe(true);
     socket.handlers.onDelta("Hello\nCONFIDENCE: 80%");

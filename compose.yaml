@@ -1,6 +1,6 @@
 services:
   mongo:
-    image: mongo:7.0.14
+    image: mongo:7.0
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-neurosense}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:?Set MONGO_PASSWORD in .env}
@@ -18,7 +18,7 @@ services:
   api:
     build: ./backend
     environment: &backend_env
-      DEBUG: ${DEBUG:-true}
+      DEBUG: ${DEBUG:-false}
       REFRESH_COOKIE_SAMESITE: ${REFRESH_COOKIE_SAMESITE:-lax}
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
       MONGO_URI: mongodb://${MONGO_USER:-neurosense}:${MONGO_PASSWORD}@mongo:27017/neurofusion?authSource=admin
@@ -32,16 +32,21 @@ services:
       EMBEDDINGS_PROVIDER: ${EMBEDDINGS_PROVIDER:-none}
       EMBEDDINGS_MODEL: ${EMBEDDINGS_MODEL:-embeddinggemma}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       MAIL_FROM: ${MAIL_FROM:-}
       MAIL_SERVER: ${MAIL_SERVER:-smtp.gmail.com}
       MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_STARTTLS: ${MAIL_STARTTLS:-true}
+      MAIL_SSL_TLS: ${MAIL_SSL_TLS:-false}
     depends_on:
       mongo: {condition: service_healthy}
       redis: {condition: service_started}
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/ready')"]
       interval: 15s
       timeout: 5s
       retries: 5

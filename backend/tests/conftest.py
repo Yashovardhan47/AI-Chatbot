@@ -22,7 +22,7 @@ async def database(monkeypatch):
     # Never use the repository .env credentials, a live DB or paid AI in tests.
     monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", "")
     monkeypatch.setattr(settings, "MEMORY_LLM_EXTRACTION", False)
-    monkeypatch.setattr(settings, "SECRET_KEY", "neurosense-test-key-only")
+    monkeypatch.setattr(settings, "SECRET_KEY", "neurosense-test-key-only-at-least-32-bytes")
     monkeypatch.setattr(settings, "EMBEDDINGS_PROVIDER", "none")
     monkeypatch.setattr(settings, "MAIL_USERNAME", "")
     monkeypatch.setattr(settings, "MAIL_PASSWORD", "")

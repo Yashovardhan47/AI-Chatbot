@@ -7,7 +7,7 @@ import time
 from datetime import datetime
 from types import SimpleNamespace
 import pytest
-from jose import jwt
+import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 from google.auth import jwt as google_jwt, crypt
@@ -93,7 +93,7 @@ async def test_existing_password_account_requires_explicit_google_link(client, o
     {"sv": 99}, {"amr": "unknown"}, {"jti": None}, {"exp": None}])
 async def test_invalid_application_jwts_cannot_access_protected_pages(client, owner, changes):
     app.dependency_overrides.clear()
-    payload = jwt.get_unverified_claims(create_access_token(str(owner.id)))
+    payload = jwt.decode(create_access_token(str(owner.id)), options={"verify_signature": False})
     payload.update(changes)
     payload = {key: value for key, value in payload.items() if value is not None}
     signed = jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
@@ -102,8 +102,8 @@ async def test_invalid_application_jwts_cannot_access_protected_pages(client, ow
 
 async def test_forged_signature_and_refresh_bearer_are_rejected(client, owner):
     app.dependency_overrides.clear()
-    payload = jwt.get_unverified_claims(create_access_token(str(owner.id)))
-    forged = jwt.encode(payload, "different-signing-key", algorithm="HS256")
+    payload = jwt.decode(create_access_token(str(owner.id)), options={"verify_signature": False})
+    forged = jwt.encode(payload, "different-signing-key-at-least-32-bytes", algorithm="HS256")
     for token in (forged, create_refresh_token(str(owner.id)), "not-a-token"):
         assert (await client.get("/api/auth/me", headers={"Authorization": "Bearer " + token})).status_code == 401
 

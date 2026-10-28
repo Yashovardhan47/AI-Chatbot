@@ -92,7 +92,8 @@ async def test_chat_recall_and_private_turn_with_provider_stub(owner, monkeypatc
         yield "A grounded answer.\nCONFIDENCE: 80%\nREASONING: Used provided evidence\nMEMORY: invented job\nSOURCES: text"
     monkeypatch.setattr(chat_route, "stream_ai_response", fake_ai)
     test_client = TestClient(app)  # No live-service lifespan; ODM uses fixture DB.
-    with test_client.websocket_connect(f"/api/chat/ws/{chat.id}?token={create_access_token(str(owner.id))}") as socket:
+    with test_client.websocket_connect(f"/api/chat/ws/{chat.id}") as socket:
+        socket.send_json({"type": "authenticate", "token": create_access_token(str(owner.id))})
         socket.send_json({"type": "message", "content": "What is my career goal?"})
         while True:
             done = socket.receive_json()
@@ -122,12 +123,14 @@ async def test_refresh_token_and_inactive_account_cannot_read_ws_memory(owner):
     chat = Chat(user_id=str(owner.id))
     await chat.insert()
     client = TestClient(app)
-    with client.websocket_connect(f"/api/chat/ws/{chat.id}?token={create_refresh_token(str(owner.id))}") as socket:
+    with client.websocket_connect(f"/api/chat/ws/{chat.id}") as socket:
+        socket.send_json({"type": "authenticate", "token": create_refresh_token(str(owner.id))})
         with pytest.raises(WebSocketDisconnect):
             socket.receive_json()
     owner.is_active = False
     await owner.save()
-    with client.websocket_connect(f"/api/chat/ws/{chat.id}?token={create_access_token(str(owner.id))}") as socket:
+    with client.websocket_connect(f"/api/chat/ws/{chat.id}") as socket:
+        socket.send_json({"type": "authenticate", "token": create_access_token(str(owner.id))})
         with pytest.raises(WebSocketDisconnect):
             socket.receive_json()
 
@@ -137,7 +140,8 @@ async def test_deleted_chat_and_foreign_chat_reject_websocket(owner):
     for user_id, active in [(str(owner.id), False), ("another-user", True)]:
         chat = Chat(user_id=user_id, is_active=active)
         await chat.insert()
-        with client.websocket_connect(f"/api/chat/ws/{chat.id}?token={create_access_token(str(owner.id))}") as socket:
+        with client.websocket_connect(f"/api/chat/ws/{chat.id}") as socket:
+            socket.send_json({"type": "authenticate", "token": create_access_token(str(owner.id))})
             with pytest.raises(WebSocketDisconnect):
                 socket.receive_json()
 
@@ -149,7 +153,8 @@ async def test_provider_failure_still_saves_explicit_memory(owner, monkeypatch):
         raise RuntimeError("private provider failure detail")
         yield ""
     monkeypatch.setattr(chat_route, "stream_ai_response", unavailable)
-    with TestClient(app).websocket_connect(f"/api/chat/ws/{chat.id}?token={create_access_token(str(owner.id))}") as socket:
+    with TestClient(app).websocket_connect(f"/api/chat/ws/{chat.id}") as socket:
+        socket.send_json({"type": "authenticate", "token": create_access_token(str(owner.id))})
         socket.send_json({"type": "message", "content": "Remember my name is Yashovardhan."})
         while True:
             done = socket.receive_json()

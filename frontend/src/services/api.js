@@ -65,6 +65,7 @@ export const authAPI = {
   forgotPw: data => api.post("/auth/forgot-password", data, publicRequest),
   resetPw: (token, data) => api.put(`/auth/reset-password/${token}`, data, publicRequest),
   verifyEmail: token => api.get(`/auth/verify/${token}`, publicRequest),
+  resendVerification: email => api.post("/auth/resend-verification", { email }, publicRequest),
   getMe: () => api.get("/auth/me"),
   session: () => api.get("/auth/session"),
 };
@@ -154,11 +155,12 @@ export function createChatSocket(chatId, token, { onDelta, onDone, onChatCreated
   const parsed = new URL(apiBase(), window.location.origin);
   parsed.protocol = parsed.protocol === "https:" ? "wss:" : "ws:";
   const base = parsed.href.replace(/\/$/, "");
-  const ws = new WebSocket(`${base}/chat/ws/${chatId}?token=${token}`);
-  ws.onopen = () => onOpen?.();
+  const ws = new WebSocket(`${base}/chat/ws/${encodeURIComponent(chatId)}`);
+  ws.onopen = () => ws.send(JSON.stringify({ type: "authenticate", token }));
   ws.onmessage = e => {
     try {
       const data = JSON.parse(e.data);
+      if (data.type === "ready") onOpen?.();
       if (data.type === "delta") onDelta?.(data.delta);
       if (data.type === "done")  onDone?.(data);
       if (data.type === "chat_created") onChatCreated?.(data.chat_id);

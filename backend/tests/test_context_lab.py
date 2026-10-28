@@ -233,7 +233,8 @@ async def test_websocket_clarifies_without_a_model_call_then_uses_selected_evide
         prompts.append(system)
         yield "Use the chosen backend."
     monkeypatch.setattr(chat_routes, "stream_ai_response", fake)
-    with TestClient(app).websocket_connect(f"/api/chat/ws/{chat.id}?token={create_access_token(str(owner.id))}") as socket:
+    with TestClient(app).websocket_connect(f"/api/chat/ws/{chat.id}") as socket:
+        socket.send_json({"type": "authenticate", "token": create_access_token(str(owner.id))})
         socket.send_json({"type": "message", "content": "Which backend should I use?"})
         packet = socket.receive_json()
         while packet["type"] not in {"done", "error"}: packet = socket.receive_json()
@@ -269,7 +270,8 @@ async def test_answer_is_not_persisted_if_memory_is_revoked_during_generation(cl
             await _delete_memory(memory["id"], owner)
         yield "An answer based on an obsolete source."
     monkeypatch.setattr(chat_routes, "stream_ai_response", fake)
-    with TestClient(app).websocket_connect(f"/api/chat/ws/{chat.id}?token={create_access_token(str(owner.id))}") as socket:
+    with TestClient(app).websocket_connect(f"/api/chat/ws/{chat.id}") as socket:
+        socket.send_json({"type": "authenticate", "token": create_access_token(str(owner.id))})
         socket.send_json({"type": "message", "content": "Tell me the backend"})
         packet = socket.receive_json()
         while packet["type"] not in {"done", "error"}: packet = socket.receive_json()

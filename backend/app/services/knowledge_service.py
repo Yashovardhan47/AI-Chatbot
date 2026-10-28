@@ -4,7 +4,7 @@ import io
 import json
 import zipfile
 from pathlib import PurePosixPath
-from xml.etree import ElementTree
+from defusedxml import ElementTree
 from app.core.config import settings
 from app.models.workspace import KnowledgeDocument, EvidenceChunk
 from app.services.memory_logic import rank_memories, fingerprint
@@ -96,6 +96,8 @@ async def _store_document(user_id, title, pages, content, filename, media_type, 
 async def store_document(user_id, title, pages, content, filename, media_type, project_id=None, auth_version=None):
     async with memory_write_guard(user_id):
         await require_actor(user_id, auth_version)
+        from app.api.routes.memory import owned_project
+        await owned_project(project_id, user_id)
         return await _store_document(user_id, title, pages, content, filename, media_type, project_id)
 
 

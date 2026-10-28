@@ -47,7 +47,7 @@ cd backend
 python -m venv .venv
 # Windows: .venv\Scripts\activate
 # Linux/macOS: source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.lock
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -101,6 +101,11 @@ client and an operational server. JWT registration/login, refresh rotation, logo
 all-session revocation and the Google-to-project-JWT route have automated checks;
 provider identities are mocked in the Google checks.
 
+The current authentication checks also verify real Google-library RSA signatures
+using local signing keys and a stubbed certificate transport. This exercises
+signature, audience, issuer, expiry and verified-email rejection without a real
+Google account. Live Google consent remains a separate deployment check.
+
 Enable Review captured facts before saving in Memory Inbox or Settings. Captured
 facts remain proposals until explicitly approved, and never replace a newer fact
 when approved late. Manual memory additions are explicit saves. Session snapshots
@@ -143,3 +148,37 @@ regeneration.
 
 The public `/#/tour?view=context` panel is an illustrative workflow. Real account
 data uses the Python/MongoDB application and its configured provider services.
+
+## Deployment audit and configuration gate
+
+Run `python -m app.preflight` from `backend` before a public deployment. It prints
+configuration issues without printing private settings, and exits nonzero while
+required settings are missing. A passing configuration check still requires the
+live service checks listed in its output. `/api/health` reports process liveness;
+`/api/ready` returns 503 when MongoDB cannot be reached. Compose uses readiness.
+
+The root example explicitly sets `DEBUG=true` for local HTTP development.
+Compose defaults to `DEBUG=false` when the setting is omitted. Production rejects
+an HTTP frontend origin or a development signing key. Preserve the exact HTTPS
+origin in `FRONTEND_URL` and in Google authorized JavaScript origins.
+
+Verification links expire after 24 hours and store only a hash. Pending accounts
+with links from older versions should request a new link from the expired-link
+page. Password reset consumes its token atomically and invalidates sessions.
+The browser sends its chat JWT in an authentication frame, waits for `ready`,
+then permits messages. Clients using `?token=` must upgrade with this release.
+
+Optional chat attachments require all three `CLOUDINARY_*` values. Compose now
+forwards these and the SMTP TLS settings. Uploads are bounded per file and failed
+or stale batches attempt to remove completed external uploads. Existing remote
+Cloudinary assets are not covered by MongoDB workspace erasure: keep uploads
+disabled where complete erasure is required until an asset inventory and durable
+cleanup workflow are added. Knowledge Library originals are stored in MongoDB
+and are covered by workspace erasure.
+
+The supplied nginx entrypoint limits authentication requests. Host the API only
+behind the same protected ingress; configure equivalent limits when deploying
+the Python API separately. Resolve real client IPs only from a trusted proxy.
+Use current base-image patches, scan and pin their digests for production, and
+verify database backups and restoration. See DEPLOYMENT_AUDIT.md for findings,
+verification boundaries and the remaining production work.

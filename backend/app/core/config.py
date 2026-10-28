@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
 from functools import lru_cache
+from urllib.parse import urlsplit
 
 
 class Settings(BaseSettings):
@@ -57,6 +58,14 @@ class Settings(BaseSettings):
             raise ValueError("AI_PROVIDER must be auto, anthropic or ollama")
         if self.EMBEDDINGS_PROVIDER not in {"none", "ollama"}:
             raise ValueError("EMBEDDINGS_PROVIDER must be none or ollama")
+        if self.ALGORITHM != "HS256":
+            raise ValueError("Application sessions require ALGORITHM=HS256")
+        frontend = urlsplit(self.FRONTEND_URL)
+        if (frontend.scheme not in {"http", "https"} or not frontend.hostname or
+                frontend.username or frontend.password or frontend.path not in {"", "/"} or frontend.query or frontend.fragment):
+            raise ValueError("FRONTEND_URL must be an exact HTTP(S) origin without a path")
+        if not self.DEBUG and frontend.scheme != "https":
+            raise ValueError("Production FRONTEND_URL must use HTTPS for secure authentication cookies")
         if self.REFRESH_COOKIE_SAMESITE not in {"lax", "strict", "none"} or (self.REFRESH_COOKIE_SAMESITE == "none" and self.DEBUG):
             raise ValueError("Use lax/strict cookies locally; cross-site cookies require DEBUG=false and SameSite=none")
 

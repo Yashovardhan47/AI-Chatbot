@@ -5,7 +5,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       mongo:
-        image: mongo:7.0.14
+        image: mongo:7.0
         ports: ["27017:27017"]
         options: >-
           --health-cmd "mongosh --quiet --eval 'db.adminCommand(\"ping\").ok'"
@@ -14,8 +14,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
-      - run: pip install -r requirements-dev.txt
+      - run: pip install --upgrade pip && pip install -r requirements-dev.lock pip-audit
         working-directory: backend
+      - run: pip-audit --disable-pip --no-deps -r requirements-dev.lock
+        working-directory: backend
+      - run: python scripts/check_repository.py
       - run: python -m pytest -q
         working-directory: backend
         env:
@@ -29,6 +32,8 @@ jobs:
         with: {node-version: '22'}
       - run: npm ci
         working-directory: frontend
+      - run: npm audit
+        working-directory: frontend
       - run: npm test
         working-directory: frontend
       - run: npm run build
@@ -37,3 +42,6 @@ jobs:
         env:
           SECRET_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
           MONGO_PASSWORD: local_ci_test_password_only
+          DEBUG: 'true'
+      - run: docker build -t neurosense-web-check ./frontend
+      - run: docker run --rm --add-host api:127.0.0.1 neurosense-web-check nginx -t
